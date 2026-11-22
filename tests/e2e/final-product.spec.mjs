@@ -28,7 +28,7 @@ test('search reveals every route into a recipient and intermediary outflows', as
   await expect(page.locator('.network-tooltip')).toContainText('Ontario Health');
   await expect(page.locator('#active-routes .active-route--intermediary')).toHaveCount(23);
   await expect(page.locator('.network-tooltip__outflows')).toContainText('Reported intermediary outflows');
-  await expect(page).toHaveURL(/recipient=/);
+  await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
 });
 
 test('search reaches a resolved provider and opens its financial profile', async ({ page }) => {
@@ -47,4 +47,18 @@ test('the page keeps horizontal overflow inside the network viewport', async ({ 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await expect(page.locator('.network-table')).toBeAttached();
+});
+
+test('recipient deep links contain useful HTML when JavaScript is disabled', async ({ browser, request, baseURL }) => {
+  const pointer = await (await request.get('/data/current.json')).json();
+  const network = await (await request.get(`/${pointer.flow_v2.network_path}`)).json();
+  const recipient = network.recipients.find((row) => row.label === 'Ontario Health');
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
+  const page = await context.newPage();
+  await page.goto(`/recipient/${recipient.recipient_id}/`);
+  await expect(page.getByRole('heading', { name: 'Ontario Health' })).toBeVisible();
+  await expect(page.locator('.static-recipient')).toContainText('$12.0B');
+  await expect(page.locator('.static-recipient')).toContainText('Home Care');
+  await expect(page.getByText('Loading the published payment network…')).toHaveCount(0);
+  await context.close();
 });

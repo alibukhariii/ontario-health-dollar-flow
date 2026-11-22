@@ -31,7 +31,10 @@ const payeeCache = new Map();
 const optionalCache = new Map();
 
 async function fetchJson(path) {
-  const response = await fetch(path);
+  const target = /^(?:https?:)?\/\//.test(path)
+    ? path
+    : new URL(path.replace(/^\//, ''), `${window.location.origin}${siteRootPath()}`).href;
+  const response = await fetch(target);
   if (!response.ok) throw new Error(`Could not load ${path}.`);
   return response.json();
 }
@@ -44,11 +47,28 @@ function announce(message) {
   elements.status.textContent = message;
 }
 
+function siteRootPath() {
+  const marker = '/recipient/';
+  const path = window.location.pathname;
+  const markerIndex = path.indexOf(marker);
+  if (markerIndex >= 0) return path.slice(0, markerIndex + 1);
+  if (path.endsWith('/')) return path;
+  return path.slice(0, path.lastIndexOf('/') + 1);
+}
+
+function recipientIdFromLocation() {
+  const queryRecipient = new URL(window.location.href).searchParams.get('recipient');
+  if (queryRecipient) return queryRecipient;
+  if (document.body.dataset.recipientId) return document.body.dataset.recipientId;
+  const match = window.location.pathname.match(/\/recipient\/([^/]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function updateUrl(recipientId) {
-  const url = new URL(window.location.href);
-  if (recipientId) url.searchParams.set('recipient', recipientId);
-  else url.searchParams.delete('recipient');
-  window.history.pushState({ recipient: recipientId }, '', `${url.pathname}${url.search}${url.hash}`);
+  const path = recipientId
+    ? `${siteRootPath()}recipient/${encodeURIComponent(recipientId)}/`
+    : siteRootPath();
+  window.history.pushState({ recipient: recipientId }, '', path);
 }
 
 async function loadOptional(path) {
@@ -191,7 +211,7 @@ async function loadNetwork() {
     elements.table.innerHTML = renderNetworkTable(contract);
     elements.shell.setAttribute('aria-busy', 'false');
     bindNetworkEvents();
-    const initialRecipient = new URL(window.location.href).searchParams.get('recipient');
+    const initialRecipient = recipientIdFromLocation();
     if (initialRecipient && layout.recipientById.has(initialRecipient)) {
       pinnedRecipientId = initialRecipient;
       await focusRecipient(initialRecipient, { pin: true });
@@ -209,7 +229,7 @@ document.querySelector('[data-close-profile]').addEventListener('click', () => {
 });
 window.addEventListener('popstate', async () => {
   await loadNetwork();
-  const id = new URL(window.location.href).searchParams.get('recipient');
+  const id = recipientIdFromLocation();
   pinnedRecipientId = id;
   if (id) focusRecipient(id, { pin: true });
   else clearFocus({ force: true });
