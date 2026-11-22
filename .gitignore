@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.venv/
+node_modules/
+release-assets/
+.openai/
+/dist/
+/playwright-report/
+/test-results/

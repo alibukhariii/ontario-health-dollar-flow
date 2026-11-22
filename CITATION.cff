@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: Ontario Health Dollar Flow
+message: Cite this software and data release using this metadata.
+type: software
+authors:
+  - family-names: Bukhari
+    given-names: Ali
+version: 2025-26.1
+date-released: 2026-11-22
+url: https://github.com/alibukhariii/ontario-health-dollar-flow
+repository-code: https://github.com/alibukhariii/ontario-health-dollar-flow
+license: MIT

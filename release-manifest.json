@@ -1,0 +1,22 @@
+{
+  "release": "2025-26.1",
+  "build_id": "89c110338a0566bb8c8d",
+  "published_payment_period": "2025-26",
+  "verification_status": "passed",
+  "verified_at": "2026-11-22",
+  "positive_published_payments_cad": "97433981876.00",
+  "named_payee_amount_cad": "65183134488.00",
+  "not_itemized_amount_cad": "32250847388.00",
+  "artifacts": [
+    {
+      "filename": "ontario-health-dollar-flow-2025-26.duckdb",
+      "bytes": 4993024,
+      "sha256": "1ff751c26051469b638ca0a6013231ab8c1598253caf409cb3429e81f50147be"
+    },
+    {
+      "filename": "ontario-health-dollar-flow-2025-26-csv.zip",
+      "bytes": 823743,
+      "sha256": "ae7dca916d9f0bf951b0173797986f996efa400b1636722ca68482384f998740"
+    }
+  ]
+}

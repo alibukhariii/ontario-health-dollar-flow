@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "privacy": "Personal labels are replaced by non-identifying program aggregates.",
+  "files": [
+    {
+      "filename": "payment-lines.csv",
+      "rows": 3989,
+      "sha256": "84ea1ad8a5b7cdcbcf5ad90676d9115fec48a88dc8436ff6c2e55696deaa8042"
+    },
+    {
+      "filename": "entity-links-reviewed.csv",
+      "rows": 145,
+      "sha256": "814eae58846903ee554438d6dcc24a7d4c039c20e8f069e2dee498a70556f0fd"
+    },
+    {
+      "filename": "financial-observations.csv",
+      "rows": 4995,
+      "sha256": "9c1187a65a6e693b363d67d4a6fd0fd964f2c858d9bff1e19d37fbf2cb5ff08f"
+    },
+    {
+      "filename": "source-snapshots.csv",
+      "rows": 140,
+      "sha256": "c73bf2b2987aa10d1ca8cc2a1d557ead81089e447c2f82e4609967e95766d9df"
+    },
+    {
+      "filename": "intermediary-outflows.csv",
+      "rows": 36,
+      "sha256": "d6ea2c5abc2c6e9b2c6372efc1b051b5377058633532f0979bf661b5f45a2404"
+    },
+    {
+      "filename": "taxonomy-sample-fixture.json",
+      "rows": null,
+      "sha256": "4afcc48c65917c9e8efc15e53c15ff376c21cabda66702b727c020dde7113eab"
+    }
+  ]
+}

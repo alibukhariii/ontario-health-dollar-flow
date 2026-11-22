@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en-CA">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Follow the money through Ontario’s health system to see which organizations received public funding in 2025–26, how much they received and what the payments were for.">
+    <title>Where Ontario’s Health Dollars Went</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body data-page="landing">
+    <a class="skip-link" href="#page-landing">Skip to the story</a>
+    <main class="flow-journey">
+      <section class="flow-page flow-page--landing" id="page-landing" aria-labelledby="landing-title">
+        <div class="landing-copy">
+          <h1 id="landing-title">Where Ontario’s<br>Health Dollars Went</h1>
+          <p>Follow the money through Ontario’s health system to see which organizations received public funding in 2025–26, how much they received and what the payments were for.</p>
+        </div>
+        <span class="landing-rule" aria-hidden="true"></span>
+      </section>
+
+      <section class="flow-page flow-page--categories" id="page-categories" aria-labelledby="categories-title">
+        <div class="page-block page-block--edge">
+          <nav class="flow-tabs" role="tablist" aria-label="Funding flow layers">
+            <button type="button" role="tab" data-tab="categories" aria-selected="true">Categories</button>
+            <button type="button" role="tab" data-tab="programs" aria-selected="false">Programs</button>
+            <button type="button" role="tab" data-tab="recipients" aria-selected="false">Recipients</button>
+          </nav>
+          <h2 class="visually-hidden" id="categories-title">Categories</h2>
+          <div id="categories-content" aria-live="polite"><p class="loading">Loading…</p></div>
+        </div>
+      </section>
+
+      <section class="flow-page flow-page--programs" id="page-programs" aria-label="Programs in the selected category">
+        <div class="page-block page-block--edge">
+          <nav class="flow-tabs flow-tabs--light" role="tablist" aria-label="Funding flow layers">
+            <button type="button" role="tab" data-tab="categories" aria-selected="false">Categories</button>
+            <button type="button" role="tab" data-tab="programs" aria-selected="true" aria-current="page">Programs</button>
+            <button type="button" role="tab" data-tab="recipients" aria-selected="false">Recipients</button>
+          </nav>
+          <div id="programs-content" aria-live="polite"><p class="no-published-amounts">Choose a category</p></div>
+        </div>
+      </section>
+
+      <section class="flow-page flow-page--recipients" id="page-recipients" aria-label="Recipients ranked by published health-ministry payments">
+        <div class="page-block page-block--edge">
+          <nav class="flow-tabs" role="tablist" aria-label="Funding flow layers">
+            <button type="button" role="tab" data-tab="categories" aria-selected="false">Categories</button>
+            <button type="button" role="tab" data-tab="programs" aria-selected="false">Programs</button>
+            <button type="button" role="tab" data-tab="recipients" aria-selected="true" aria-current="page">Recipients</button>
+          </nav>
+          <label class="recipient-search" for="recipient-search">
+            <span class="visually-hidden">Search named payees</span>
+            <input id="recipient-search" type="search" placeholder="Find an organization" autocomplete="off">
+          </label>
+          <div id="recipients-content" aria-live="polite"><p class="loading">Loading…</p></div>
+        </div>
+      </section>
+
+      <section class="flow-page flow-page--profile" id="page-profile" aria-labelledby="profile-title">
+        <div class="page-block page-block--edge">
+          <h2 class="page-title" id="profile-title">Reported revenue and expenses</h2>
+          <div id="profile-content"><p class="no-published-amounts">No published amounts</p></div>
+        </div>
+      </section>
+    </main>
+
+    <details class="source-control" id="source-control">
+      <summary>Sources</summary>
+      <div id="source-content"><p>Loading…</p></div>
+    </details>
+    <p class="visually-hidden" id="flow-status" aria-live="polite"></p>
+    <script type="module" src="browser-app.mjs"></script>
+  </body>
+</html>
