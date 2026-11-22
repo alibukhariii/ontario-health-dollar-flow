@@ -1,4 +1,5 @@
 import csv
+import json
 import sys
 import unittest
 from decimal import Decimal
@@ -356,7 +357,10 @@ class FlowV2DataTests(unittest.TestCase):
         self.assertEqual(payload["profile_status"], "no_published_amounts")
 
     def test_actual_ledger_reconciles_to_binding_taxonomy_and_sample_fixture(self):
-        evidence = ROOT.parents[1] / "evidence" / "ontario-health-dollar-map" / "payment-lines.csv"
+        public_evidence = ROOT / "data" / "input" / "payment-lines.csv"
+        evidence = public_evidence if public_evidence.exists() else (
+            ROOT.parents[1] / "evidence" / "ontario-health-dollar-map" / "payment-lines.csv"
+        )
         with evidence.open(encoding="utf-8-sig", newline="") as handle:
             rows = [
                 row for row in csv.DictReader(handle)
@@ -364,7 +368,12 @@ class FlowV2DataTests(unittest.TestCase):
             ]
 
         overview = flow_v2_data.build_overview("2025-26", rows)
-        sample = flow_v2_data.build_sample_fixture(rows, seed=20261121)
+        public_fixture = ROOT / "data" / "input" / "taxonomy-sample-fixture.json"
+        sample = (
+            json.loads(public_fixture.read_text(encoding="utf-8"))
+            if public_fixture.exists()
+            else flow_v2_data.build_sample_fixture(rows, seed=20261121)
+        )
 
         self.assertEqual(overview["positive_published_payments_cad"], "97433981876.00")
         self.assertEqual(overview["signed_adjustments_cad"], "-421011479.00")
