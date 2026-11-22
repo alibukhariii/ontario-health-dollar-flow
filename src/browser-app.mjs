@@ -1,35 +1,34 @@
-import { parseFlowV2State, preferredScrollBehavior, serializeFlowV2State } from './app-model.mjs';
 import {
   escapeHtml,
-  renderCategoriesCanvas,
-  renderPayeePage,
-  renderProfilePage,
-  renderProgramsPage,
-  renderRecipientsPage,
-} from './renderers.mjs';
+  formatCad,
+  layoutFundingNetwork,
+  renderFundingNetwork,
+  renderNetworkTable,
+  renderRecipientFocus,
+} from './network.mjs';
+import { renderProfilePage } from './renderers.mjs';
 
 const elements = {
-  categories: document.querySelector('#categories-content'),
-  programs: document.querySelector('#programs-content'),
-  recipients: document.querySelector('#recipients-content'),
+  canvas: document.querySelector('#network-canvas'),
+  shell: document.querySelector('.network-shell'),
+  tooltip: document.querySelector('#network-tooltip'),
+  table: document.querySelector('#network-table'),
   search: document.querySelector('#recipient-search'),
+  results: document.querySelector('#search-results'),
+  count: document.querySelector('#recipient-count'),
+  profilePanel: document.querySelector('#profile-panel'),
   profile: document.querySelector('#profile-content'),
-  source: document.querySelector('#source-content'),
-  status: document.querySelector('#flow-status'),
-  tabs: [...document.querySelectorAll('[data-tab]')],
+  status: document.querySelector('#network-status'),
 };
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const caches = { categories: new Map(), payees: new Map(), profiles: new Map(), intermediaries: new Map() };
 let pointer;
-let overview;
-let convergence;
+let contract;
+let layout;
 let releaseBase;
-let selectedCategory = null;
-let selectedProgram = null;
-let selectedPayee = null;
-let recipientLimit = 50;
-let state = parseFlowV2State(window.location.search);
+let loadingPromise;
+let pinnedRecipientId = null;
+const payeeCache = new Map();
+const optionalCache = new Map();
 
 async function fetchJson(path) {
   const response = await fetch(path);
@@ -37,220 +36,193 @@ async function fetchJson(path) {
   return response.json();
 }
 
-function directoryOf(path) { return path.slice(0, path.lastIndexOf('/') + 1); }
-function announce(message) { elements.status.textContent = message; }
-
-function scrollToPage(page) {
-  const section = document.querySelector(`#page-${page}`);
-  if (!section) return;
-  document.body.dataset.page = page;
-  for (const tab of elements.tabs) {
-    const active = tab.dataset.tab === page;
-    tab.setAttribute('aria-selected', String(active));
-    if (active) tab.setAttribute('aria-current', 'page');
-    else tab.removeAttribute('aria-current');
-  }
-  section.scrollIntoView({ behavior: preferredScrollBehavior(reducedMotion), block: 'start' });
+function directoryOf(path) {
+  return path.slice(0, path.lastIndexOf('/') + 1);
 }
 
-function setState(next, { replace = false, scroll = true } = {}) {
-  state = { ...state, ...next };
-  const query = serializeFlowV2State(state);
-  const url = `${window.location.pathname}${query ? `?${query}` : ''}`;
-  window.history[replace ? 'replaceState' : 'pushState'](state, '', url);
-  if (scroll) scrollToPage(state.page);
+function announce(message) {
+  elements.status.textContent = message;
 }
 
-async function loadCategory(categoryId) {
-  if (!caches.categories.has(categoryId)) {
-    const index = overview.categories.find((row) => row.category_id === categoryId);
-    if (!index) throw new Error(`Unknown category: ${categoryId}`);
-    caches.categories.set(categoryId, fetchJson(`${releaseBase}${index.path}`));
-  }
-  return caches.categories.get(categoryId);
+function updateUrl(recipientId) {
+  const url = new URL(window.location.href);
+  if (recipientId) url.searchParams.set('recipient', recipientId);
+  else url.searchParams.delete('recipient');
+  window.history.pushState({ recipient: recipientId }, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
-async function loadPayee(path, payeeId) {
-  if (!caches.payees.has(payeeId)) caches.payees.set(payeeId, fetchJson(`${releaseBase}${path}`));
-  return caches.payees.get(payeeId);
-}
-
-async function loadOptional(path, cache, key) {
+async function loadOptional(path) {
   if (!path) return null;
-  if (!cache.has(key)) cache.set(key, fetchJson(`${releaseBase}${path}`));
-  return cache.get(key);
+  if (!optionalCache.has(path)) optionalCache.set(path, fetchJson(`${releaseBase}${path}`));
+  return optionalCache.get(path);
 }
 
-function renderCategories() {
-  elements.categories.innerHTML = renderCategoriesCanvas(overview, selectedCategory?.category_id ?? null);
-}
-
-function renderPrograms() {
-  elements.programs.innerHTML = renderProgramsPage(selectedCategory, selectedProgram?.program_id ?? null);
-}
-
-function renderRecipients() {
-  elements.recipients.innerHTML = renderRecipientsPage(convergence, selectedProgram, {
-    query: elements.search.value,
-    limit: recipientLimit,
-  });
-}
-
-async function selectCategory(categoryId, { history = true, scroll = true } = {}) {
-  selectedCategory = await loadCategory(categoryId);
-  selectedProgram = null;
-  selectedPayee = null;
-  recipientLimit = 50;
-  renderCategories();
-  renderPrograms();
-  renderRecipients();
-  if (history) setState({ page: 'programs', category: categoryId, program: null, payee: null }, { scroll });
-  else if (scroll) scrollToPage('programs');
-  announce(`${selectedCategory.label} programs loaded.`);
-}
-
-function findProgram(programId) {
-  return selectedCategory?.programs?.find((program) => program.program_id === programId) ?? null;
-}
-
-function selectProgram(programId, { history = true, scroll = true } = {}) {
-  selectedProgram = findProgram(programId);
-  if (!selectedProgram) return;
-  selectedPayee = null;
-  recipientLimit = 50;
-  elements.search.value = '';
-  renderPrograms();
-  renderRecipients();
-  if (history) setState({ page: 'recipients', category: selectedCategory.category_id, program: programId, payee: null }, { scroll });
-  else if (scroll) scrollToPage('recipients');
-  announce(`${selectedProgram.label} recipients loaded.`);
-}
-
-function profileUnavailableReason(payee) {
-  if (payee.profile_unavailable_reason) return payee.profile_unavailable_reason;
-  if (payee.payee_type === 'hospital corporation') return '2025–26 financial statement unavailable';
-  return 'Financial profile not collected in the current scope';
-}
-
-async function selectPayee(path, payeeId, { history = true, scroll = true } = {}) {
-  selectedPayee = await loadPayee(path, payeeId);
-  const intermediary = await loadOptional(selectedPayee.intermediary_path, caches.intermediaries, selectedPayee.intermediary_path);
-  elements.recipients.innerHTML = renderPayeePage(selectedPayee, intermediary, {
-    programLabel: selectedProgram?.label ?? null,
-  });
-  const profile = await loadOptional(selectedPayee.profile_path, caches.profiles, payeeId);
-  elements.profile.innerHTML = renderProfilePage(profile, profileUnavailableReason(selectedPayee));
-  if (history) setState({ page: 'recipients', payee: payeeId }, { scroll });
-  else if (scroll) scrollToPage('recipients');
-  announce(`${selectedPayee.published_label} loaded with ${selectedPayee.incoming_routes.length} published routes.`);
-}
-
-function showGlobalRecipients({ history = true } = {}) {
-  selectedCategory = null;
-  selectedProgram = null;
-  selectedPayee = null;
-  recipientLimit = 50;
-  elements.search.value = '';
-  renderCategories();
-  renderPrograms();
-  renderRecipients();
-  if (history) setState({ page: 'recipients', category: null, program: null, payee: null });
-  else scrollToPage('recipients');
-}
-
-function bindEvents() {
-  elements.categories.addEventListener('click', async (event) => {
-    const category = event.target.closest('[data-category-id]');
-    if (category) await selectCategory(category.dataset.categoryId);
-  });
-  elements.programs.addEventListener('click', (event) => {
-    const program = event.target.closest('[data-program-id]');
-    if (program) selectProgram(program.dataset.programId);
-  });
-  elements.search.addEventListener('input', () => {
-    recipientLimit = 50;
-    if (!selectedPayee) renderRecipients();
-  });
-  elements.recipients.addEventListener('click', async (event) => {
-    const payee = event.target.closest('[data-payee-id]');
-    if (payee) {
-      await selectPayee(payee.dataset.payeePath, payee.dataset.payeeId);
-      return;
-    }
-    if (event.target.closest('[data-recipient-more]')) {
-      recipientLimit += 50;
-      renderRecipients();
-      return;
-    }
-    if (event.target.closest('[data-back-to-program]')) {
-      selectedPayee = null;
-      renderRecipients();
-      setState({ page: 'recipients', payee: null });
-      return;
-    }
-    if (event.target.closest('.payee-junction') && selectedPayee) setState({ page: 'profile' });
-  });
-  for (const tab of elements.tabs) {
-    tab.addEventListener('click', () => {
-      if (tab.dataset.tab === 'categories') setState({ page: 'categories' });
-      if (tab.dataset.tab === 'programs') setState({ page: selectedCategory ? 'programs' : 'categories' });
-      if (tab.dataset.tab === 'recipients') {
-        if (selectedCategory) setState({ page: 'recipients' });
-        else showGlobalRecipients();
-      }
-    });
+async function loadPayee(recipient) {
+  if (!payeeCache.has(recipient.recipient_id)) {
+    payeeCache.set(recipient.recipient_id, fetchJson(`${releaseBase}${recipient.path}`));
   }
-  window.addEventListener('popstate', async () => {
-    state = parseFlowV2State(window.location.search);
-    await restoreState();
+  return payeeCache.get(recipient.recipient_id);
+}
+
+function renderOutflows(intermediary) {
+  if (!intermediary?.groups?.length) return '';
+  return `<div class="network-tooltip__outflows"><h4>Reported intermediary outflows</h4><p>Shown separately from the published-payment total above.</p><ul>${intermediary.groups.map((group) => `<li><span>${escapeHtml(group.group_label)}</span><strong>${formatCad(group.amount_cad)}</strong></li>`).join('')}</ul></div>`;
+}
+
+function setActiveNode(recipientId) {
+  for (const node of elements.canvas.querySelectorAll('[data-recipient-id]')) {
+    node.classList.toggle('is-active', node.dataset.recipientId === recipientId);
+    node.classList.toggle('is-muted', Boolean(recipientId) && node.dataset.recipientId !== recipientId);
+  }
+}
+
+function clearFocus({ force = false } = {}) {
+  if (pinnedRecipientId && !force) return;
+  const activeRoutes = elements.canvas.querySelector('#active-routes');
+  if (activeRoutes) activeRoutes.innerHTML = '';
+  setActiveNode(null);
+  elements.tooltip.hidden = true;
+  elements.tooltip.innerHTML = '';
+}
+
+async function focusRecipient(recipientId, { pin = false, history = false } = {}) {
+  if (!layout) return;
+  const recipient = layout.recipientById.get(recipientId);
+  if (!recipient) return;
+  if (pin) pinnedRecipientId = recipientId;
+  const payload = await loadPayee(recipient);
+  const intermediary = await loadOptional(payload.intermediary_path);
+  const focused = renderRecipientFocus(layout, payload);
+  const activeRoutes = elements.canvas.querySelector('#active-routes');
+  if (activeRoutes) activeRoutes.innerHTML = focused.routes;
+  setActiveNode(recipientId);
+  elements.tooltip.innerHTML = `${focused.tooltip}${renderOutflows(intermediary)}`;
+  elements.tooltip.hidden = false;
+  elements.tooltip.dataset.recipientId = recipientId;
+  if (history) updateUrl(recipientId);
+  announce(`${recipient.label}, ${formatCad(recipient.amount_cad)}, with ${payload.incoming_routes.length} published routes.`);
+}
+
+async function openProfile() {
+  if (!pinnedRecipientId) return;
+  const recipient = layout.recipientById.get(pinnedRecipientId);
+  const payload = await loadPayee(recipient);
+  const profile = await loadOptional(payload.profile_path);
+  elements.profile.innerHTML = renderProfilePage(
+    profile,
+    payload.evidence_stops?.[0]?.state ?? 'No published amounts',
+  );
+  elements.profilePanel.hidden = false;
+  elements.profilePanel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+function searchRecipients(query) {
+  const needle = query.trim().toLocaleLowerCase('en-CA');
+  if (!needle) return [];
+  return contract.recipients
+    .filter((row) => row.label.toLocaleLowerCase('en-CA').includes(needle))
+    .slice(0, 12);
+}
+
+function renderSearchResults() {
+  const matches = searchRecipients(elements.search.value);
+  elements.results.hidden = !elements.search.value.trim();
+  if (!elements.search.value.trim()) {
+    elements.results.innerHTML = '';
+    return;
+  }
+  elements.results.innerHTML = matches.length
+    ? matches.map((row) => `<button type="button" data-search-recipient="${escapeHtml(row.recipient_id)}"><span>${escapeHtml(row.label)}<small>${escapeHtml(row.payee_type)}</small></span><strong>${formatCad(row.amount_cad)}</strong></button>`).join('')
+    : '<p>No named recipient matches that search.</p>';
+}
+
+function bindNetworkEvents() {
+  elements.canvas.addEventListener('pointerover', (event) => {
+    const node = event.target.closest('[data-recipient-id]');
+    if (node && !pinnedRecipientId) focusRecipient(node.dataset.recipientId);
+  });
+  elements.canvas.addEventListener('pointerout', (event) => {
+    if (!event.target.closest('[data-recipient-id]')) return;
+    if (!pinnedRecipientId) clearFocus();
+  });
+  elements.canvas.addEventListener('focusin', (event) => {
+    const node = event.target.closest('[data-recipient-id]');
+    if (node) focusRecipient(node.dataset.recipientId);
+  });
+  elements.canvas.addEventListener('click', (event) => {
+    const node = event.target.closest('[data-recipient-id]');
+    if (node) focusRecipient(node.dataset.recipientId, { pin: true, history: true });
+  });
+  elements.canvas.addEventListener('keydown', (event) => {
+    const node = event.target.closest('[data-recipient-id]');
+    if (node && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      focusRecipient(node.dataset.recipientId, { pin: true, history: true });
+    }
+    if (event.key === 'Escape') {
+      pinnedRecipientId = null;
+      clearFocus({ force: true });
+    }
+  });
+  elements.search.addEventListener('input', renderSearchResults);
+  elements.results.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-search-recipient]');
+    if (!button) return;
+    const id = button.dataset.searchRecipient;
+    elements.results.hidden = true;
+    elements.search.value = layout.recipientById.get(id)?.label ?? elements.search.value;
+    elements.canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    focusRecipient(id, { pin: true, history: true });
+  });
+  elements.tooltip.addEventListener('click', (event) => {
+    if (event.target.closest('[data-open-profile]')) openProfile();
   });
 }
 
-function observePages() {
+async function loadNetwork() {
+  if (loadingPromise) return loadingPromise;
+  loadingPromise = (async () => {
+    pointer = await fetchJson('data/current.json');
+    releaseBase = directoryOf(pointer.flow_v2.network_path);
+    contract = await fetchJson(pointer.flow_v2.network_path);
+    layout = layoutFundingNetwork(contract);
+    elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named recipients`;
+    elements.canvas.innerHTML = renderFundingNetwork(layout, contract);
+    elements.table.innerHTML = renderNetworkTable(contract);
+    elements.shell.setAttribute('aria-busy', 'false');
+    bindNetworkEvents();
+    const initialRecipient = new URL(window.location.href).searchParams.get('recipient');
+    if (initialRecipient && layout.recipientById.has(initialRecipient)) {
+      pinnedRecipientId = initialRecipient;
+      await focusRecipient(initialRecipient, { pin: true });
+    }
+  })().catch((error) => {
+    console.error(error);
+    elements.shell.setAttribute('aria-busy', 'false');
+    elements.canvas.innerHTML = `<p class="network-error">The published payment network could not be loaded. ${escapeHtml(error.message)}</p>`;
+  });
+  return loadingPromise;
+}
+
+document.querySelector('[data-close-profile]').addEventListener('click', () => {
+  elements.profilePanel.hidden = true;
+});
+window.addEventListener('popstate', async () => {
+  await loadNetwork();
+  const id = new URL(window.location.href).searchParams.get('recipient');
+  pinnedRecipientId = id;
+  if (id) focusRecipient(id, { pin: true });
+  else clearFocus({ force: true });
+});
+
+if ('IntersectionObserver' in window) {
   const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      entry.target.classList.add('is-visible');
-      document.body.dataset.page = entry.target.id.replace('page-', '');
+    if (entries.some((entry) => entry.isIntersecting)) {
+      loadNetwork();
+      observer.disconnect();
     }
-  }, { threshold: 0.45 });
-  document.querySelectorAll('.flow-page').forEach((page) => observer.observe(page));
-}
-
-async function renderSources() {
-  const sourceIndex = await fetchJson(pointer.flow_v2.source_path);
-  elements.source.innerHTML = sourceIndex.sources.map((source) => `<p><a href="${escapeHtml(source.url)}" rel="noreferrer">${escapeHtml(source.label)}</a><span>${escapeHtml(source.role)}</span></p>`).join('');
-}
-
-async function restoreState() {
-  selectedCategory = state.category ? await loadCategory(state.category) : null;
-  selectedProgram = state.program ? findProgram(state.program) : null;
-  selectedPayee = null;
-  renderCategories();
-  renderPrograms();
-  renderRecipients();
-  if (state.payee) {
-    const candidate = selectedProgram?.destinations?.find((row) => row.destination_id === state.payee)
-      ?? convergence.payees?.find((row) => row.payment_label_id === state.payee);
-    if (candidate?.path) await selectPayee(candidate.path, state.payee, { history: false, scroll: false });
-  }
-  scrollToPage(state.page);
-}
-
-try {
-  pointer = await fetchJson('data/current.json');
-  releaseBase = directoryOf(pointer.flow_v2.overview_path);
-  [overview, convergence] = await Promise.all([
-    fetchJson(pointer.flow_v2.overview_path),
-    fetchJson(pointer.flow_v2.convergence_path),
-  ]);
-  renderCategories();
-  renderPrograms();
-  renderRecipients();
-  bindEvents();
-  observePages();
-  await Promise.all([renderSources(), restoreState()]);
-} catch (error) {
-  console.error(error);
-  elements.categories.innerHTML = `<p class="no-published-amounts">The published amounts could not be loaded. ${escapeHtml(error.message)}</p>`;
+  }, { rootMargin: '500px' });
+  observer.observe(document.querySelector('#page-network'));
+} else {
+  loadNetwork();
 }

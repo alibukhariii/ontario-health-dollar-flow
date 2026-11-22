@@ -822,6 +822,111 @@ def build_convergence_index(
     }
 
 
+def program_key(ministry: str, category_id: str, program_label: str) -> str:
+    return f"{ministry}\u241f{category_id}\u241f{program_label}"
+
+
+def build_network_overview(
+    overview: dict[str, object],
+    category_payloads: dict[str, dict[str, object]],
+    convergence: dict[str, object],
+    payee_payloads: dict[str, dict[str, object]],
+    organization_payloads: dict[str, dict[str, object]],
+    *,
+    labelled_count: int = 18,
+) -> dict[str, object]:
+    """Build the compact, public contract used by the radial network."""
+    programs: list[dict[str, object]] = []
+    categories: list[dict[str, object]] = []
+    for category_row in overview["categories"]:
+        category_id = str(category_row["category_id"])
+        payload = category_payloads[category_id]
+        ministry_amounts: dict[str, Decimal] = defaultdict(Decimal)
+        for row in payload.get("programs", []):
+            amount = Decimal(str(row["positive_amount_cad"]))
+            ministry = str(row["ministry"])
+            ministry_amounts[ministry] += amount
+            programs.append({
+                "program_key": program_key(ministry, category_id, str(row["label"])),
+                "program_id": row["program_id"],
+                "label": row["label"],
+                "category_id": category_id,
+                "ministry": ministry,
+                "amount_cad": money(amount),
+            })
+        categories.append({
+            "category_id": category_id,
+            "label": category_row["label"],
+            "amount_cad": category_row["amount_cad"],
+            "share_percent": category_row["share_percent"],
+            "program_count": len(payload.get("programs", [])),
+            "ministry_amounts": [
+                {"ministry": ministry, "amount_cad": money(amount)}
+                for ministry, amount in sorted(ministry_amounts.items())
+            ],
+        })
+    programs.sort(key=lambda row: (-Decimal(str(row["amount_cad"])), str(row["label"])))
+
+    recipients: list[dict[str, object]] = []
+    default_routes: list[dict[str, object]] = []
+    for position, convergence_row in enumerate(convergence["payees"]):
+        recipient_id = str(convergence_row["payment_label_id"])
+        payload = organization_payloads.get(recipient_id) or payee_payloads.get(recipient_id)
+        if payload is None:
+            raise ValueError(f"Network recipient payload is unavailable: {recipient_id}")
+        label_by_default = position < labelled_count
+        recipients.append({
+            "recipient_id": recipient_id,
+            "label": convergence_row["display_label"],
+            "payee_type": convergence_row["payee_type"],
+            "destination_type": convergence_row["destination_type"],
+            "amount_cad": convergence_row["published_payment_total_cad"],
+            "global_rank": convergence_row["global_rank"],
+            "path": convergence_row["path"],
+            "has_profile": bool(convergence_row.get("has_profile")),
+            "is_intermediary": convergence_row["destination_type"] == "intermediary",
+            "label_by_default": label_by_default,
+        })
+        if label_by_default and payload.get("incoming_routes"):
+            route = payload["incoming_routes"][0]
+            default_routes.append({
+                "recipient_id": recipient_id,
+                "program_key": program_key(
+                    str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
+                ),
+                "amount_cad": route["amount_cad"],
+            })
+
+    program_keys = {str(row["program_key"]) for row in programs}
+    if any(str(row["program_key"]) not in program_keys for row in default_routes):
+        raise ValueError("A default network route references an unknown program")
+    for category in categories:
+        ministry_total = sum(
+            (Decimal(str(row["amount_cad"])) for row in category["ministry_amounts"]), Decimal("0")
+        )
+        if ministry_total != Decimal(str(category["amount_cad"])):
+            raise ValueError(f"Network ministry split does not reconcile for {category['category_id']}")
+
+    return {
+        "schema_version": "3.0.0",
+        "fiscal_year": overview["fiscal_year"],
+        "positive_published_payments_cad": overview["positive_published_payments_cad"],
+        "named_destination_amount_cad": overview["named_destination_amount_cad"],
+        "named_recipient_count": len(recipients),
+        "not_itemized_to_public_recipient_cad": overview["not_itemized_to_public_recipient_cad"],
+        "not_itemized_share_percent": overview["not_itemized_share_percent"],
+        "ministries": overview["ministries"],
+        "categories": categories,
+        "programs": programs,
+        "recipients": recipients,
+        "default_routes": default_routes,
+        "source": {
+            "label": "Ontario Public Accounts 2025–26 Detailed Schedules of Payments",
+            "url": PAYMENTS_SOURCE_URL,
+        },
+    }
+
+
 def build_intermediary_payloads(
     fiscal_year: str,
     observations: Iterable[dict[str, str]],

@@ -177,6 +177,49 @@ class FlowV2DataTests(unittest.TestCase):
         self.assertEqual(result["not_itemized_to_public_recipient_cad"], "30.00")
         self.assertEqual(result["concentration"]["top_1_share_of_named_payees_percent"], "50.00")
 
+    def test_network_overview_is_compact_complete_and_reconciled(self):
+        rows = [
+            payment("hospital", 100, "Operation Of Hospitals", label_id="hospital", label="Alpha Hospital"),
+            payment(
+                "ltc", 50, "No Value", label_id="ltc", label="Beta Home",
+                recipient_class="long_term_care_related_recipient",
+                ministry="Ministry Of Long-Term Care",
+            ),
+            payment(
+                "aggregate", 25, "Community Health Centres", label_id="aggregate",
+                label="Program total", recipient_class="program_aggregate",
+            ),
+        ]
+        overview = flow_v2_data.build_overview("2025-26", rows)
+        categories = {
+            category_id: flow_v2_data.build_category_payload("2025-26", category_id, rows, set())
+            for category_id, _ in flow_v2_data.CATEGORIES
+        }
+        payee_index, payee_payloads = flow_v2_data.build_payee_payloads("2025-26", rows, {}, {})
+        convergence = flow_v2_data.build_convergence_index(payee_index, overview)
+        for recipient in convergence["payees"]:
+            payee_payloads[recipient["payment_label_id"]]["global_rank"] = recipient["global_rank"]
+
+        network = flow_v2_data.build_network_overview(
+            overview, categories, convergence, payee_payloads, {}, labelled_count=1,
+        )
+
+        self.assertEqual(network["schema_version"], "3.0.0")
+        self.assertEqual(len(network["categories"]), 14)
+        self.assertEqual(len(network["programs"]), 3)
+        self.assertEqual(len(network["recipients"]), 2)
+        self.assertEqual(network["recipients"][0]["label"], "Alpha Hospital")
+        self.assertTrue(network["recipients"][0]["label_by_default"])
+        self.assertFalse(network["recipients"][1]["label_by_default"])
+        self.assertEqual(network["not_itemized_to_public_recipient_cad"], "25.00")
+        program_keys = {row["program_key"] for row in network["programs"]}
+        self.assertTrue(all(row["program_key"] in program_keys for row in network["default_routes"]))
+        category_total = sum(Decimal(row["amount_cad"]) for row in network["categories"])
+        self.assertEqual(category_total, Decimal("175.00"))
+        for category in network["categories"]:
+            ministry_total = sum(Decimal(row["amount_cad"]) for row in category["ministry_amounts"])
+            self.assertEqual(ministry_total, Decimal(category["amount_cad"]))
+
     def test_authoritative_entity_level_overrides_a_misleading_payment_class(self):
         rows = [
             payment(

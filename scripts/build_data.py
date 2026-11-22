@@ -1653,6 +1653,13 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         payloads = organization_payloads if row["payment_label_id"] in organization_payloads else payee_payloads
         payloads[row["payment_label_id"]]["global_rank"] = row["global_rank"]
         payloads[row["payment_label_id"]]["share_of_all_positive_percent"] = row["share_of_all_positive_percent"]
+    network_overview = flow_v2_data.build_network_overview(
+        flow_overview,
+        category_payloads,
+        convergence,
+        payee_payloads,
+        organization_payloads,
+    )
     taxonomy_crosswalk = flow_v2_data.build_crosswalk(payments)
     sample_fixture_path = public_input_root / "taxonomy-sample-fixture.json"
     taxonomy_sample = (
@@ -1667,6 +1674,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         "flow_v2": {
             "overview_path": f"data/releases/{release_id}/flow-v2-overview.json",
             "convergence_path": f"data/releases/{release_id}/convergence-index.json",
+            "network_path": f"data/releases/{release_id}/network-overview.json",
             "taxonomy_path": f"data/releases/{release_id}/taxonomy-crosswalk.json",
             "sample_path": f"data/releases/{release_id}/taxonomy-sample.json",
             "source_path": f"data/releases/{release_id}/source-index.json",
@@ -1675,6 +1683,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
     release_dir = output_root / "data" / "releases" / release_id
     write_json(release_dir / "flow-v2-overview.json", flow_overview)
     write_json(release_dir / "convergence-index.json", convergence)
+    write_json(release_dir / "network-overview.json", network_overview)
     write_json(release_dir / "taxonomy-crosswalk.json", {
         "schema_version": "2.0.0",
         "taxonomy_version": flow_v2_data.TAXONOMY_VERSION,
@@ -1725,7 +1734,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
             flow_bundle_digest.update(path.read_bytes())
             flow_artifact_count += 1
     primary_artifacts = [
-        "release.json", "flow-v2-overview.json", "convergence-index.json", "taxonomy-crosswalk.json",
+        "release.json", "flow-v2-overview.json", "convergence-index.json", "network-overview.json", "taxonomy-crosswalk.json",
         "taxonomy-sample.json", "source-index.json",
     ]
     write_json(
@@ -1754,6 +1763,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
             "flow_v2": {
                 "overview_path": f"data/releases/{release_id}/flow-v2-overview.json",
                 "convergence_path": f"data/releases/{release_id}/convergence-index.json",
+                "network_path": f"data/releases/{release_id}/network-overview.json",
                 "taxonomy_path": f"data/releases/{release_id}/taxonomy-crosswalk.json",
                 "sample_path": f"data/releases/{release_id}/taxonomy-sample.json",
                 "source_path": f"data/releases/{release_id}/source-index.json",

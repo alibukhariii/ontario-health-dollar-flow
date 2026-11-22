@@ -3,72 +3,55 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Follow the money through Ontario’s health system to see which organizations received public funding in 2025–26, how much they received and what the payments were for.">
+    <meta name="description" content="Follow Ontario’s published health-ministry payments from the ministry to the recipient.">
     <title>Where Ontario’s Health Dollars Went</title>
     <link rel="stylesheet" href="styles.css">
   </head>
-  <body data-page="landing">
-    <a class="skip-link" href="#page-landing">Skip to the story</a>
-    <main class="flow-journey">
-      <section class="flow-page flow-page--landing" id="page-landing" aria-labelledby="landing-title">
-        <div class="landing-copy">
+  <body>
+    <a class="skip-link" href="#page-network">Skip to the funding network</a>
+    <main>
+      <section class="landing" id="page-landing" aria-labelledby="landing-title">
+        <div class="landing__copy">
           <h1 id="landing-title">Where Ontario’s<br>Health Dollars Went</h1>
-          <p>Follow the money through Ontario’s health system to see which organizations received public funding in 2025–26, how much they received and what the payments were for.</p>
+          <p>Follow the money through Ontario's health system from the ministry to the recipient</p>
         </div>
-        <span class="landing-rule" aria-hidden="true"></span>
+        <div class="landing__meta">
+          <span>Data for FY 2025–26</span>
+          <span>Created for Quantika by <a href="https://github.com/alibukhariii" rel="author">Ali Bukhari</a></span>
+        </div>
+        <span class="landing__rule" aria-hidden="true"></span>
       </section>
 
-      <section class="flow-page flow-page--categories" id="page-categories" aria-labelledby="categories-title">
-        <div class="page-block page-block--edge">
-          <nav class="flow-tabs" role="tablist" aria-label="Funding flow layers">
-            <button type="button" role="tab" data-tab="categories" aria-selected="true">Categories</button>
-            <button type="button" role="tab" data-tab="programs" aria-selected="false">Programs</button>
-            <button type="button" role="tab" data-tab="recipients" aria-selected="false">Recipients</button>
-          </nav>
-          <h2 class="visually-hidden" id="categories-title">Categories</h2>
-          <div id="categories-content" aria-live="polite"><p class="loading">Loading…</p></div>
-        </div>
-      </section>
+      <section class="network-page" id="page-network" aria-labelledby="network-title">
+        <header class="network-intro">
+          <h2 id="network-title">Who received Ontario’s health dollars?</h2>
+          <p><strong>$97.4B</strong> in positive published payments moved through the Ministry of Health and Ministry of Long-Term Care to <strong id="recipient-count">2,081 named recipients</strong>.</p>
+          <p class="network-source">Source: <a href="https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments">Ontario Public Accounts 2025–26 Detailed Schedules of Payments</a></p>
+        </header>
 
-      <section class="flow-page flow-page--programs" id="page-programs" aria-label="Programs in the selected category">
-        <div class="page-block page-block--edge">
-          <nav class="flow-tabs flow-tabs--light" role="tablist" aria-label="Funding flow layers">
-            <button type="button" role="tab" data-tab="categories" aria-selected="false">Categories</button>
-            <button type="button" role="tab" data-tab="programs" aria-selected="true" aria-current="page">Programs</button>
-            <button type="button" role="tab" data-tab="recipients" aria-selected="false">Recipients</button>
-          </nav>
-          <div id="programs-content" aria-live="polite"><p class="no-published-amounts">Choose a category</p></div>
-        </div>
-      </section>
-
-      <section class="flow-page flow-page--recipients" id="page-recipients" aria-label="Recipients ranked by published health-ministry payments">
-        <div class="page-block page-block--edge">
-          <nav class="flow-tabs" role="tablist" aria-label="Funding flow layers">
-            <button type="button" role="tab" data-tab="categories" aria-selected="false">Categories</button>
-            <button type="button" role="tab" data-tab="programs" aria-selected="false">Programs</button>
-            <button type="button" role="tab" data-tab="recipients" aria-selected="true" aria-current="page">Recipients</button>
-          </nav>
-          <label class="recipient-search" for="recipient-search">
-            <span class="visually-hidden">Search named payees</span>
-            <input id="recipient-search" type="search" placeholder="Find an organization" autocomplete="off">
+        <div class="network-tools">
+          <label class="network-search" for="recipient-search">
+            <span>Find a recipient</span>
+            <input id="recipient-search" type="search" autocomplete="off" placeholder="Search all named recipients">
           </label>
-          <div id="recipients-content" aria-live="polite"><p class="loading">Loading…</p></div>
+          <div class="search-results" id="search-results" hidden></div>
+          <p class="network-instruction">Hover, focus or search to reveal every published route into an organization.</p>
         </div>
-      </section>
 
-      <section class="flow-page flow-page--profile" id="page-profile" aria-labelledby="profile-title">
-        <div class="page-block page-block--edge">
-          <h2 class="page-title" id="profile-title">Reported revenue and expenses</h2>
-          <div id="profile-content"><p class="no-published-amounts">No published amounts</p></div>
+        <div class="network-shell" aria-busy="true">
+          <div class="network-canvas" id="network-canvas"><p class="loading">Loading the published payment network…</p></div>
+          <aside class="network-tooltip" id="network-tooltip" aria-live="polite" hidden></aside>
         </div>
+
+        <div id="network-table"></div>
+        <aside class="profile-panel" id="profile-panel" hidden>
+          <button type="button" class="profile-panel__close" data-close-profile>Close</button>
+          <h2>Reported revenue and expenses</h2>
+          <div id="profile-content"></div>
+        </aside>
       </section>
     </main>
-
-    <details class="source-control" id="source-control">
-      <summary>Sources</summary>
-      <div id="source-content"><p>Loading…</p></div>
-    </details>
-    <p class="visually-hidden" id="flow-status" aria-live="polite"></p>
+    <p class="visually-hidden" id="network-status" aria-live="polite"></p>
     <script type="module" src="browser-app.mjs"></script>
   </body>
 </html>

@@ -14,6 +14,7 @@ STATIC_FILES = (
     "browser-app.mjs",
     "app-model.mjs",
     "renderers.mjs",
+    "network.mjs",
 )
 
 
