@@ -877,6 +877,7 @@ def build_network_overview(
     programs.sort(key=lambda row: (-Decimal(str(row["amount_cad"])), str(row["label"])))
 
     recipients: list[dict[str, object]] = []
+    named_routes: list[dict[str, object]] = []
     default_routes: list[dict[str, object]] = []
     collapsed_routes: dict[str, Decimal] = defaultdict(Decimal)
     collapsed_amount = Decimal("0")
@@ -898,6 +899,14 @@ def build_network_overview(
             "is_intermediary": convergence_row["destination_type"] == "intermediary",
             "label_by_default": label_by_default,
         })
+        for route in payload.get("incoming_routes", []):
+            named_routes.append({
+                "recipient_id": recipient_id,
+                "program_key": program_key(
+                    str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
+                ),
+                "amount_cad": route["amount_cad"],
+            })
         if label_by_default:
             for route in payload.get("incoming_routes", []):
                 default_routes.append({
@@ -956,6 +965,7 @@ def build_network_overview(
         "categories": categories,
         "programs": programs,
         "recipients": recipients,
+        "named_routes": named_routes,
         "default_routes": default_routes,
         "source": {
             "label": "Ontario Public Accounts 2025–26 Detailed Schedules of Payments",

@@ -31,6 +31,8 @@ let loadingPromise;
 let pinnedRecipientId = null;
 let focusRequestId = 0;
 let hoverTimer = null;
+let recipientOffset = 0;
+let focusedCategoryId = null;
 const payeeCache = new Map();
 const optionalCache = new Map();
 
@@ -100,6 +102,29 @@ function setActiveNode(recipientId) {
   }
 }
 
+function applyRecipientTypeFilter() {
+  const selected = elements.typeFilter.value;
+  for (const node of elements.canvas.querySelectorAll('[data-payee-type]')) {
+    node.classList.toggle('is-filtered', Boolean(selected) && node.dataset.payeeType !== selected);
+  }
+}
+
+function renderCurrentNetwork() {
+  layout = layoutFundingNetwork(contract, { recipientOffset, focusedCategoryId });
+  elements.canvas.innerHTML = renderFundingNetwork(layout, contract);
+  applyRecipientTypeFilter();
+}
+
+function showRecipientInZoom(recipientId) {
+  const index = contract.recipients.findIndex((row) => row.recipient_id === recipientId);
+  if (index < 0) return false;
+  const pageSize = contract.displayed_recipient_count ?? 50;
+  recipientOffset = Math.floor(index / pageSize) * pageSize;
+  focusedCategoryId = null;
+  renderCurrentNetwork();
+  return true;
+}
+
 function clearFocus({ force = false } = {}) {
   if (pinnedRecipientId && !force) return;
   const activeRoutes = elements.canvas.querySelector('#active-routes');
@@ -120,7 +145,15 @@ function closeRecipientFocus({ updateHistory = true } = {}) {
 
 async function focusRecipient(recipientId, { pin = false, history = false } = {}) {
   if (!layout) return;
-  const recipient = layout.recipientById.get(recipientId);
+  if (focusedCategoryId) {
+    focusedCategoryId = null;
+    renderCurrentNetwork();
+  }
+  let recipient = layout.recipientById.get(recipientId);
+  if (!recipient || recipient.hiddenRecipientId) {
+    if (!showRecipientInZoom(recipientId)) return;
+    recipient = layout.recipientById.get(recipientId);
+  }
   if (!recipient) return;
   const requestId = ++focusRequestId;
   if (pin) pinnedRecipientId = recipientId;
@@ -193,10 +226,47 @@ function bindNetworkEvents() {
     if (node) focusRecipient(node.dataset.recipientId);
   });
   elements.canvas.addEventListener('click', (event) => {
+    const zoom = event.target.closest('[data-recipient-zoom-offset]');
+    if (zoom) {
+      closeRecipientFocus({ updateHistory: false });
+      recipientOffset = Number(zoom.dataset.recipientZoomOffset);
+      focusedCategoryId = null;
+      renderCurrentNetwork();
+      announce(`Showing recipient ranks ${layout.recipientWindowStart} through ${layout.recipientWindowEnd}.`);
+      return;
+    }
+    const zoomBack = event.target.closest('[data-recipient-zoom-back]');
+    if (zoomBack) {
+      closeRecipientFocus({ updateHistory: false });
+      recipientOffset = Number(zoomBack.dataset.recipientZoomBack);
+      renderCurrentNetwork();
+      announce(`Returned to recipient ranks ${layout.recipientWindowStart} through ${layout.recipientWindowEnd}.`);
+      return;
+    }
+    const category = event.target.closest('[data-category-id]');
+    if (category) {
+      closeRecipientFocus({ updateHistory: false });
+      focusedCategoryId = category.dataset.categoryId;
+      renderCurrentNetwork();
+      announce(`Programs in ${layout.focusedCategory?.label ?? 'the selected funding purpose'} are expanded.`);
+      return;
+    }
+    if (event.target.closest('[data-program-focus-back]')) {
+      focusedCategoryId = null;
+      renderCurrentNetwork();
+      announce('All funding purposes and programs are visible.');
+      return;
+    }
     const node = event.target.closest('[data-recipient-id]');
     if (node) focusRecipient(node.dataset.recipientId, { pin: true, history: true });
   });
   elements.canvas.addEventListener('keydown', (event) => {
+    const control = event.target.closest('[data-recipient-zoom-offset],[data-category-id]');
+    if (control && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return;
+    }
     const node = event.target.closest('[data-recipient-id]');
     if (node && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
@@ -208,10 +278,7 @@ function bindNetworkEvents() {
   });
   elements.search.addEventListener('input', renderSearchResults);
   elements.typeFilter.addEventListener('change', () => {
-    const selected = elements.typeFilter.value;
-    for (const node of elements.canvas.querySelectorAll('[data-payee-type]')) {
-      node.classList.toggle('is-filtered', Boolean(selected) && node.dataset.payeeType !== selected);
-    }
+    applyRecipientTypeFilter();
     renderSearchResults();
   });
   elements.results.addEventListener('click', (event) => {
@@ -219,7 +286,9 @@ function bindNetworkEvents() {
     if (!button) return;
     const id = button.dataset.searchRecipient;
     elements.results.hidden = true;
-    elements.search.value = layout.recipientById.get(id)?.label ?? elements.search.value;
+    const matched = contract.recipients.find((row) => row.recipient_id === id);
+    elements.search.value = matched?.label ?? elements.search.value;
+    showRecipientInZoom(id);
     elements.canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
     focusRecipient(id, { pin: true, history: true });
   });
@@ -240,17 +309,17 @@ async function loadNetwork() {
     pointer = await fetchJson('data/current.json');
     releaseBase = directoryOf(pointer.flow_v2.network_path);
     contract = await fetchJson(pointer.flow_v2.network_path);
-    layout = layoutFundingNetwork(contract);
     elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named recipients`;
     for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
       elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
     }
-    elements.canvas.innerHTML = renderFundingNetwork(layout, contract);
+    renderCurrentNetwork();
     elements.table.innerHTML = renderNetworkTable(contract);
     elements.shell.setAttribute('aria-busy', 'false');
     bindNetworkEvents();
     const initialRecipient = recipientIdFromLocation();
-    if (initialRecipient && layout.recipientById.has(initialRecipient)) {
+    if (initialRecipient && contract.recipients.some((row) => row.recipient_id === initialRecipient)) {
+      showRecipientInZoom(initialRecipient);
       pinnedRecipientId = initialRecipient;
       await focusRecipient(initialRecipient, { pin: true });
     }

@@ -42,6 +42,11 @@ const fixture = {
   displayed_recipient_count: 2,
   collapsed_recipient_count: 1,
   collapsed_recipient_amount_cad: '1.00',
+  named_routes: [
+    { recipient_id: 'a', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' },
+    { recipient_id: 'b', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '40.00' },
+    { recipient_id: 'c', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '1.00' },
+  ],
   default_routes: [
     { recipient_id: 'a', target_type: 'named_recipient', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' },
     { recipient_id: 'b', target_type: 'named_recipient', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '35.00' },
@@ -77,23 +82,49 @@ test('network layout is deterministic, keeps recipients inside the centre and av
   }
 });
 
-test('renderer shows a readable recipient subset, aggregated remainder and connected non-itemized bubble', () => {
+test('recipient layout excludes non-itemized money and pages through the named-recipient long tail', () => {
   assert.equal(typeof network.renderFundingNetwork, 'function');
   const layout = network.layoutFundingNetwork(fixture);
   const html = network.renderFundingNetwork(layout, fixture);
   assert.equal((html.match(/<g class="recipient-node[^>]+data-recipient-id=/g) ?? []).length, 2);
   assert.match(html, /1 smaller recipient/);
-  assert.match(html, /recipient-node--not-itemized/);
+  assert.doesNotMatch(html, /recipient-node--not-itemized/);
+  assert.match(html, /data-recipient-zoom-offset="2"/);
   assert.match(html, /target_type/);
   assert.match(html, /recipient-node--intermediary/);
   assert.match(html, /Ministry of Health/);
   assert.match(html, /Ministry of Long-Term Care/);
-  assert.match(html, /Not itemized by recipient/);
+  assert.match(html, /\$25.*published only in aggregate/i);
+  assert.match(html, /Source note/);
+  assert.match(html, /coverage-split__itemized/);
+  assert.match(html, /coverage-split__aggregate/);
+  assert.match(html, /Zoom to next 1/);
   assert.match(html, /role="group"/);
   assert.match(html, /Funding purposes/);
   assert.match(html, /Programs/);
   assert.match(html, /Named recipients/);
-  assert.match(html, /\$100\.0M/);
+  assert.match(html, /Recipient scale/);
+
+  const tail = network.layoutFundingNetwork(fixture, { recipientOffset: 2 });
+  assert.equal(tail.recipients.length, 1);
+  assert.equal(tail.recipients[0].recipient_id, 'c');
+  assert.equal(tail.recipientScaleTotal, 1);
+  const tailHtml = network.renderFundingNetwork(tail, fixture);
+  assert.match(tailHtml, /Ranks 3–3 of 3/);
+  assert.match(tailHtml, /data-recipient-zoom-back="0"/);
+});
+
+test('category focus spreads every program in the selected category and exposes readable labels', () => {
+  const focused = network.layoutFundingNetwork(fixture, { focusedCategoryId: 'hospital_care' });
+  const html = network.renderFundingNetwork(focused, fixture);
+  assert.equal(focused.programs.length, 1);
+  assert.equal((html.match(/class="program-node__label/g) ?? []).length, 0);
+  assert.equal((html.match(/class="program-focus-list__item/g) ?? []).length, 1);
+  assert.match(html, /class="program-node__index"/);
+  assert.match(html, /Showing 1 program in <strong>Hospital care<\/strong>/);
+  assert.match(html, /data-program-focus-back/);
+  assert.match(html, /category-node__leader/);
+  assert.match(html, /category-node__hit/);
 });
 
 test('active route renderer ranks every published route and uses dotted paths for intermediaries', () => {

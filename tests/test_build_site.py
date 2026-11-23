@@ -79,6 +79,13 @@ class BuildSiteTests(unittest.TestCase):
             self.assertEqual(network["not_itemized_share_percent"], "33.10")
             program_keys = {row["program_key"] for row in network["programs"]}
             self.assertTrue(all(row["program_key"] in program_keys for row in network["default_routes"]))
+            recipient_ids = {row["recipient_id"] for row in network["recipients"]}
+            self.assertTrue(network["named_routes"])
+            self.assertTrue(all(row["recipient_id"] in recipient_ids for row in network["named_routes"]))
+            self.assertEqual(
+                sum(Decimal(row["amount_cad"]) for row in network["named_routes"]),
+                Decimal(network["named_destination_amount_cad"]),
+            )
             route_totals = {
                 program_key: sum(
                     Decimal(row["amount_cad"])

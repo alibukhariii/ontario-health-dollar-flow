@@ -17,19 +17,46 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('[data-program-key]')).toHaveCount(74);
   await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
-  await expect(page.locator('.recipient-node--not-itemized')).toContainText('$32.3B');
+  await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$32.3B');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Source note');
+  await expect(page.locator('.coverage-split__itemized')).toContainText('$65.2B');
+  await expect(page.locator('.coverage-split__aggregate')).toContainText('$32.3B');
   await expect(page.locator('.network-intro')).toContainText('$65.2B went to 2,081 named recipients');
   await expect(page.locator('.network-net-note')).toContainText('$97.0B net');
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
 });
 
-test('search reveals every route into a recipient and intermediary outflows', async ({ page }) => {
+test('category and recipient aggregates open legible zoom levels', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'mobile');
+  await openNetwork(page);
+  await page.locator('[data-category-id="hospital_care"]').click();
+  await expect(page.locator('.program-focus-status')).toContainText('Hospital care');
+  await expect(page.locator('.program-node__index')).toHaveCount(4);
+  await page.locator('[data-program-focus-back]').click();
+
+  await page.locator('[data-category-id="ministry_operations_and_other_published_payments"]').click();
+  await expect(page.locator('.program-focus-list__item')).toHaveCount(16);
+  await expect(page.locator('.program-focus-list')).toContainText('Other Payments');
+  await page.locator('[data-program-focus-back]').click();
+
+  await page.locator('[data-recipient-zoom-offset="50"]').click();
+  await expect(page.locator('.recipient-zoom-status')).toContainText('Ranks 51–100');
+  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
+  await expect(page.locator('[data-recipient-zoom-back="0"]')).toBeVisible();
+});
+
+test('search reveals every route into a recipient and intermediary outflows', async ({ page }, testInfo) => {
   await openNetwork(page);
   await page.locator('#recipient-search').fill('Ontario Health');
   await page.locator('[data-search-recipient]').filter({ hasText: /^Ontario Health/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
   await expect(page.locator('.network-tooltip')).toContainText('Ontario Health');
-  await expect(page.locator('#active-routes .active-route--intermediary')).toHaveCount(23);
+  if (testInfo.project.name === 'mobile') {
+    await expect(page.locator('.network-tooltip__more')).toContainText('+ 15 more published routes');
+  } else {
+    await expect(page.locator('#active-routes .active-route--intermediary')).toHaveCount(23);
+  }
   await expect(page.locator('.network-tooltip__outflows')).toContainText('Reported intermediary outflows');
   await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
   await expect(page.locator('[data-close-tooltip]')).toBeVisible();
