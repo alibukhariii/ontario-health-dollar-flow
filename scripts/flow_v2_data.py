@@ -833,7 +833,7 @@ def build_network_overview(
     payee_payloads: dict[str, dict[str, object]],
     organization_payloads: dict[str, dict[str, object]],
     *,
-    labelled_count: int = 18,
+    labelled_count: int = 50,
 ) -> dict[str, object]:
     """Build the compact, public contract used by the radial network."""
     programs: list[dict[str, object]] = []
@@ -846,6 +846,14 @@ def build_network_overview(
             amount = Decimal(str(row["positive_amount_cad"]))
             ministry = str(row["ministry"])
             ministry_amounts[ministry] += amount
+            not_itemized_amount = sum(
+                (
+                    Decimal(str(destination["amount_cad"]))
+                    for destination in row.get("destinations", [])
+                    if destination.get("destination_type") == "not_itemized"
+                ),
+                Decimal("0"),
+            )
             programs.append({
                 "program_key": program_key(ministry, category_id, str(row["label"])),
                 "program_id": row["program_id"],
@@ -853,6 +861,7 @@ def build_network_overview(
                 "category_id": category_id,
                 "ministry": ministry,
                 "amount_cad": money(amount),
+                "not_itemized_amount_cad": money(not_itemized_amount),
             })
         categories.append({
             "category_id": category_id,
@@ -869,6 +878,8 @@ def build_network_overview(
 
     recipients: list[dict[str, object]] = []
     default_routes: list[dict[str, object]] = []
+    collapsed_routes: dict[str, Decimal] = defaultdict(Decimal)
+    collapsed_amount = Decimal("0")
     for position, convergence_row in enumerate(convergence["payees"]):
         recipient_id = str(convergence_row["payment_label_id"])
         payload = organization_payloads.get(recipient_id) or payee_payloads.get(recipient_id)
@@ -887,15 +898,36 @@ def build_network_overview(
             "is_intermediary": convergence_row["destination_type"] == "intermediary",
             "label_by_default": label_by_default,
         })
-        if label_by_default and payload.get("incoming_routes"):
-            route = payload["incoming_routes"][0]
-            default_routes.append({
-                "recipient_id": recipient_id,
-                "program_key": program_key(
+        if label_by_default:
+            for route in payload.get("incoming_routes", []):
+                default_routes.append({
+                    "recipient_id": recipient_id,
+                    "target_type": "named_recipient",
+                    "program_key": program_key(
+                        str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
+                    ),
+                    "amount_cad": route["amount_cad"],
+                })
+        else:
+            collapsed_amount += Decimal(str(convergence_row["published_payment_total_cad"]))
+            for route in payload.get("incoming_routes", []):
+                key = program_key(
                     str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
-                ),
-                "amount_cad": route["amount_cad"],
-            })
+                )
+                collapsed_routes[key] += Decimal(str(route["amount_cad"]))
+
+    default_routes.extend({
+        "recipient_id": "__smaller_recipients__",
+        "target_type": "smaller_recipients",
+        "program_key": key,
+        "amount_cad": money(amount),
+    } for key, amount in sorted(collapsed_routes.items()) if amount)
+    default_routes.extend({
+        "recipient_id": "__not_itemized__",
+        "target_type": "not_itemized",
+        "program_key": str(program["program_key"]),
+        "amount_cad": str(program["not_itemized_amount_cad"]),
+    } for program in programs if Decimal(str(program["not_itemized_amount_cad"])))
 
     program_keys = {str(row["program_key"]) for row in programs}
     if any(str(row["program_key"]) not in program_keys for row in default_routes):
@@ -911,8 +943,13 @@ def build_network_overview(
         "schema_version": "3.0.0",
         "fiscal_year": overview["fiscal_year"],
         "positive_published_payments_cad": overview["positive_published_payments_cad"],
+        "signed_adjustments_cad": overview["signed_adjustments_cad"],
+        "net_published_payments_cad": overview["net_published_payments_cad"],
         "named_destination_amount_cad": overview["named_destination_amount_cad"],
         "named_recipient_count": len(recipients),
+        "displayed_recipient_count": min(labelled_count, len(recipients)),
+        "collapsed_recipient_count": max(0, len(recipients) - labelled_count),
+        "collapsed_recipient_amount_cad": money(collapsed_amount),
         "not_itemized_to_public_recipient_cad": overview["not_itemized_to_public_recipient_cad"],
         "not_itemized_share_percent": overview["not_itemized_share_percent"],
         "ministries": overview["ministries"],

@@ -1,5 +1,6 @@
 import {
   escapeHtml,
+  displayLabel,
   formatCad,
   layoutFundingNetwork,
   renderFundingNetwork,
@@ -14,6 +15,7 @@ const elements = {
   tooltip: document.querySelector('#network-tooltip'),
   table: document.querySelector('#network-table'),
   search: document.querySelector('#recipient-search'),
+  typeFilter: document.querySelector('#recipient-type-filter'),
   results: document.querySelector('#search-results'),
   count: document.querySelector('#recipient-count'),
   profilePanel: document.querySelector('#profile-panel'),
@@ -27,6 +29,8 @@ let layout;
 let releaseBase;
 let loadingPromise;
 let pinnedRecipientId = null;
+let focusRequestId = 0;
+let hoverTimer = null;
 const payeeCache = new Map();
 const optionalCache = new Map();
 
@@ -90,9 +94,9 @@ function renderOutflows(intermediary) {
 }
 
 function setActiveNode(recipientId) {
-  for (const node of elements.canvas.querySelectorAll('[data-recipient-id]')) {
-    node.classList.toggle('is-active', node.dataset.recipientId === recipientId);
-    node.classList.toggle('is-muted', Boolean(recipientId) && node.dataset.recipientId !== recipientId);
+  for (const node of elements.canvas.querySelectorAll('[data-visual-recipient-id]')) {
+    node.classList.toggle('is-active', node.dataset.visualRecipientId === recipientId);
+    node.classList.toggle('is-muted', Boolean(recipientId) && node.dataset.visualRecipientId !== recipientId);
   }
 }
 
@@ -105,17 +109,28 @@ function clearFocus({ force = false } = {}) {
   elements.tooltip.innerHTML = '';
 }
 
+function closeRecipientFocus({ updateHistory = true } = {}) {
+  focusRequestId += 1;
+  pinnedRecipientId = null;
+  clearTimeout(hoverTimer);
+  clearFocus({ force: true });
+  if (updateHistory) updateUrl(null);
+  announce('Recipient details closed.');
+}
+
 async function focusRecipient(recipientId, { pin = false, history = false } = {}) {
   if (!layout) return;
   const recipient = layout.recipientById.get(recipientId);
   if (!recipient) return;
+  const requestId = ++focusRequestId;
   if (pin) pinnedRecipientId = recipientId;
   const payload = await loadPayee(recipient);
   const intermediary = await loadOptional(payload.intermediary_path);
+  if (requestId !== focusRequestId) return;
   const focused = renderRecipientFocus(layout, payload);
   const activeRoutes = elements.canvas.querySelector('#active-routes');
   if (activeRoutes) activeRoutes.innerHTML = focused.routes;
-  setActiveNode(recipientId);
+  setActiveNode(focused.visualRecipientId);
   elements.tooltip.innerHTML = `${focused.tooltip}${renderOutflows(intermediary)}`;
   elements.tooltip.hidden = false;
   elements.tooltip.dataset.recipientId = recipientId;
@@ -139,8 +154,9 @@ async function openProfile() {
 function searchRecipients(query) {
   const needle = query.trim().toLocaleLowerCase('en-CA');
   if (!needle) return [];
+  const selectedType = elements.typeFilter.value;
   return contract.recipients
-    .filter((row) => row.label.toLocaleLowerCase('en-CA').includes(needle))
+    .filter((row) => row.label.toLocaleLowerCase('en-CA').includes(needle) && (!selectedType || row.payee_type === selectedType))
     .slice(0, 12);
 }
 
@@ -152,18 +168,25 @@ function renderSearchResults() {
     return;
   }
   elements.results.innerHTML = matches.length
-    ? matches.map((row) => `<button type="button" data-search-recipient="${escapeHtml(row.recipient_id)}"><span>${escapeHtml(row.label)}<small>${escapeHtml(row.payee_type)}</small></span><strong>${formatCad(row.amount_cad)}</strong></button>`).join('')
+    ? matches.map((row) => `<button type="button" data-search-recipient="${escapeHtml(row.recipient_id)}"><span>${escapeHtml(displayLabel(row.label))}<small>${escapeHtml(row.payee_type)}</small></span><strong>${formatCad(row.amount_cad)}</strong></button>`).join('')
     : '<p>No named recipient matches that search.</p>';
 }
 
 function bindNetworkEvents() {
   elements.canvas.addEventListener('pointerover', (event) => {
     const node = event.target.closest('[data-recipient-id]');
-    if (node && !pinnedRecipientId) focusRecipient(node.dataset.recipientId);
+    if (node && !pinnedRecipientId) {
+      clearTimeout(hoverTimer);
+      hoverTimer = setTimeout(() => focusRecipient(node.dataset.recipientId), 80);
+    }
   });
   elements.canvas.addEventListener('pointerout', (event) => {
     if (!event.target.closest('[data-recipient-id]')) return;
-    if (!pinnedRecipientId) clearFocus();
+    clearTimeout(hoverTimer);
+    if (!pinnedRecipientId) {
+      focusRequestId += 1;
+      clearFocus();
+    }
   });
   elements.canvas.addEventListener('focusin', (event) => {
     const node = event.target.closest('[data-recipient-id]');
@@ -180,11 +203,17 @@ function bindNetworkEvents() {
       focusRecipient(node.dataset.recipientId, { pin: true, history: true });
     }
     if (event.key === 'Escape') {
-      pinnedRecipientId = null;
-      clearFocus({ force: true });
+      closeRecipientFocus();
     }
   });
   elements.search.addEventListener('input', renderSearchResults);
+  elements.typeFilter.addEventListener('change', () => {
+    const selected = elements.typeFilter.value;
+    for (const node of elements.canvas.querySelectorAll('[data-payee-type]')) {
+      node.classList.toggle('is-filtered', Boolean(selected) && node.dataset.payeeType !== selected);
+    }
+    renderSearchResults();
+  });
   elements.results.addEventListener('click', (event) => {
     const button = event.target.closest('[data-search-recipient]');
     if (!button) return;
@@ -195,7 +224,13 @@ function bindNetworkEvents() {
     focusRecipient(id, { pin: true, history: true });
   });
   elements.tooltip.addEventListener('click', (event) => {
+    if (event.target.closest('[data-close-tooltip]')) closeRecipientFocus();
     if (event.target.closest('[data-open-profile]')) openProfile();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!pinnedRecipientId) return;
+    if (event.target.closest('#network-tooltip,[data-recipient-id],#search-results,.network-search')) return;
+    closeRecipientFocus();
   });
 }
 
@@ -207,6 +242,9 @@ async function loadNetwork() {
     contract = await fetchJson(pointer.flow_v2.network_path);
     layout = layoutFundingNetwork(contract);
     elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named recipients`;
+    for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
+      elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
+    }
     elements.canvas.innerHTML = renderFundingNetwork(layout, contract);
     elements.table.innerHTML = renderNetworkTable(contract);
     elements.shell.setAttribute('aria-busy', 'false');

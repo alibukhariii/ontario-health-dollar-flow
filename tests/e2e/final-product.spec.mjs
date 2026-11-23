@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 async function openNetwork(page) {
   await page.goto('/');
   await page.locator('#page-network').scrollIntoViewIfNeeded();
-  await expect(page.locator('.funding-network')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.funding-network')).toBeAttached({ timeout: 20_000 });
 }
 
 test('loads the landing page and complete radial funding network', async ({ page }) => {
@@ -15,8 +15,11 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.getByRole('heading', { name: 'Who received Ontario’s health dollars?' })).toBeVisible();
   await expect(page.locator('[data-category-id]')).toHaveCount(14);
   await expect(page.locator('[data-program-key]')).toHaveCount(74);
-  await expect(page.locator('[data-recipient-id]')).toHaveCount(2081);
-  await expect(page.locator('.not-itemized-callout')).toContainText('$32.3B');
+  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
+  await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
+  await expect(page.locator('.recipient-node--not-itemized')).toContainText('$32.3B');
+  await expect(page.locator('.network-intro')).toContainText('$65.2B went to 2,081 named recipients');
+  await expect(page.locator('.network-net-note')).toContainText('$97.0B net');
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
 });
 
@@ -29,6 +32,20 @@ test('search reveals every route into a recipient and intermediary outflows', as
   await expect(page.locator('#active-routes .active-route--intermediary')).toHaveCount(23);
   await expect(page.locator('.network-tooltip__outflows')).toContainText('Reported intermediary outflows');
   await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
+  await expect(page.locator('[data-close-tooltip]')).toBeVisible();
+  await page.locator('[data-close-tooltip]').click();
+  await expect(page.locator('.network-tooltip')).toBeHidden();
+});
+
+test('mobile uses an expandable list instead of a horizontally scrolling radial canvas', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile');
+  await openNetwork(page);
+  await expect(page.locator('.mobile-network')).toBeVisible();
+  await expect(page.locator('.funding-network')).toBeHidden();
+  await page.locator('.mobile-category').first().locator('summary').click();
+  await expect(page.locator('.mobile-program').first()).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
 });
 
 test('search reaches a resolved provider and opens its financial profile', async ({ page }) => {

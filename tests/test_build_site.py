@@ -3,6 +3,7 @@ import tempfile
 import unittest
 import json
 import gzip
+from decimal import Decimal
 from pathlib import Path
 
 
@@ -67,9 +68,28 @@ class BuildSiteTests(unittest.TestCase):
             self.assertEqual(len(network["programs"]), 74)
             self.assertEqual(len(network["recipients"]), 2081)
             self.assertEqual(network["named_recipient_count"], 2081)
+            self.assertEqual(network["displayed_recipient_count"], 50)
+            self.assertEqual(network["collapsed_recipient_count"], 2031)
+            self.assertEqual(network["signed_adjustments_cad"], "-421011479.00")
+            self.assertEqual(network["net_published_payments_cad"], "97012970397.00")
+            self.assertEqual(
+                sum(Decimal(row["amount_cad"]) for row in network["default_routes"] if row["target_type"] == "not_itemized"),
+                Decimal(network["not_itemized_to_public_recipient_cad"]),
+            )
             self.assertEqual(network["not_itemized_share_percent"], "33.10")
             program_keys = {row["program_key"] for row in network["programs"]}
             self.assertTrue(all(row["program_key"] in program_keys for row in network["default_routes"]))
+            route_totals = {
+                program_key: sum(
+                    Decimal(row["amount_cad"])
+                    for row in network["default_routes"]
+                    if row["program_key"] == program_key
+                )
+                for program_key in program_keys
+            }
+            self.assertEqual(set(route_totals), program_keys)
+            for program in network["programs"]:
+                self.assertEqual(route_totals[program["program_key"]], Decimal(program["amount_cad"]))
             root_html = (output_root / "index.html").read_text(encoding="utf-8")
             self.assertIn("Hospital care", root_html)
             self.assertIn("2,081 named recipients", root_html)

@@ -10,9 +10,16 @@ try {
 
 const fixture = {
   positive_published_payments_cad: '175.00',
+  signed_adjustments_cad: '-5.00',
+  net_published_payments_cad: '170.00',
+  named_destination_amount_cad: '150.00',
   named_recipient_count: 3,
   not_itemized_to_public_recipient_cad: '25.00',
   not_itemized_share_percent: '14.29',
+  ministries: [
+    { ministry: 'Ministry Of Health', positive_amount_cad: '125.00' },
+    { ministry: 'Ministry Of Long-Term Care', positive_amount_cad: '50.00' },
+  ],
   categories: [
     {
       category_id: 'hospital_care', label: 'Hospital care', amount_cad: '100.00', share_percent: '57.14',
@@ -24,15 +31,24 @@ const fixture = {
     },
   ],
   programs: [
-    { program_key: 'Ministry Of Health␟hospital_care␟Operations', label: 'Operations', category_id: 'hospital_care', ministry: 'Ministry Of Health', amount_cad: '100.00' },
-    { program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', label: 'Transfers', category_id: 'long_term_care', ministry: 'Ministry Of Long-Term Care', amount_cad: '50.00' },
+    { program_key: 'Ministry Of Health␟hospital_care␟Operations', label: 'Operations', category_id: 'hospital_care', ministry: 'Ministry Of Health', amount_cad: '100.00', not_itemized_amount_cad: '10.00' },
+    { program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', label: 'Transfers', category_id: 'long_term_care', ministry: 'Ministry Of Long-Term Care', amount_cad: '50.00', not_itemized_amount_cad: '15.00' },
   ],
   recipients: [
     { recipient_id: 'a', label: 'Alpha Hospital', payee_type: 'hospital corporation', amount_cad: '90.00', global_rank: 1, path: 'payees/a.json', label_by_default: true, is_intermediary: false },
     { recipient_id: 'b', label: 'Ontario Health', payee_type: 'intermediary', amount_cad: '40.00', global_rank: 2, path: 'payees/b.json', label_by_default: true, is_intermediary: true },
     { recipient_id: 'c', label: 'Tiny Provider', payee_type: 'provider', amount_cad: '1.00', global_rank: 3, path: 'payees/c.json', label_by_default: false, is_intermediary: false },
   ],
-  default_routes: [{ recipient_id: 'a', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' }],
+  displayed_recipient_count: 2,
+  collapsed_recipient_count: 1,
+  collapsed_recipient_amount_cad: '1.00',
+  default_routes: [
+    { recipient_id: 'a', target_type: 'named_recipient', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' },
+    { recipient_id: 'b', target_type: 'named_recipient', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '35.00' },
+    { recipient_id: '__smaller_recipients__', target_type: 'smaller_recipients', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '1.00' },
+    { recipient_id: '__not_itemized__', target_type: 'not_itemized', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '10.00' },
+    { recipient_id: '__not_itemized__', target_type: 'not_itemized', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '15.00' },
+  ],
 };
 
 test('recipient radii use area rather than diameter to encode amount', () => {
@@ -61,16 +77,23 @@ test('network layout is deterministic, keeps recipients inside the centre and av
   }
 });
 
-test('renderer includes all recipient nodes, ministry legend, intermediary styling and non-itemized callout', () => {
+test('renderer shows a readable recipient subset, aggregated remainder and connected non-itemized bubble', () => {
   assert.equal(typeof network.renderFundingNetwork, 'function');
   const layout = network.layoutFundingNetwork(fixture);
   const html = network.renderFundingNetwork(layout, fixture);
-  assert.equal((html.match(/data-recipient-id=/g) ?? []).length, 3);
+  assert.equal((html.match(/<g class="recipient-node[^>]+data-recipient-id=/g) ?? []).length, 2);
+  assert.match(html, /1 smaller recipient/);
+  assert.match(html, /recipient-node--not-itemized/);
+  assert.match(html, /target_type/);
   assert.match(html, /recipient-node--intermediary/);
   assert.match(html, /Ministry of Health/);
   assert.match(html, /Ministry of Long-Term Care/);
-  assert.match(html, /Not itemized to a named recipient/);
-  assert.match(html, /aria-label="Funding network/);
+  assert.match(html, /Not itemized by recipient/);
+  assert.match(html, /role="group"/);
+  assert.match(html, /Funding purposes/);
+  assert.match(html, /Programs/);
+  assert.match(html, /Named recipients/);
+  assert.match(html, /\$100\.0M/);
 });
 
 test('active route renderer ranks every published route and uses dotted paths for intermediaries', () => {
@@ -88,4 +111,13 @@ test('active route renderer ranks every published route and uses dotted paths fo
   assert.match(result.routes, /active-route--intermediary/);
   assert.ok(result.tooltip.indexOf('$30') < result.tooltip.indexOf('$10'));
   assert.match(result.tooltip, /#2/);
+  assert.match(result.tooltip, /Close/);
+  assert.match(result.tooltip, /75\.0%/);
+  assert.match(result.tooltip, /route-share/);
+});
+
+test('formatters use one decimal place and normalize display casing', () => {
+  assert.equal(network.formatCad(2_000_000_000), '$2.0B');
+  assert.equal(network.displayLabel('Operation Of Hospitals'), 'Operation of Hospitals');
+  assert.equal(network.displayLabel('City Of Toronto'), 'City of Toronto');
 });
