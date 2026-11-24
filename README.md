@@ -34,6 +34,14 @@ npm run serve
 
 Open <http://localhost:4173>.
 
+The preserved original MVP is served at the root. The redesigned review edition is available at:
+
+```text
+http://localhost:4173/review-v2/
+```
+
+The review edition turns the audit trail into an editorial “globe”: funding purposes form the large meridians, official programs appear as marks on those paths, and named recipients occupy the centre. Selecting a recipient replaces the overview with its evidence-backed answer card. A flat view and a complete static HTML layer provide the same evidence without relying on hover or the graphic.
+
 Build the public database and matching CSV archive with the locked project environment:
 
 ```bash
@@ -42,7 +50,7 @@ python scripts/build_public_release.py
 
 ## Repository guide
 
-- `src/`: accessible editorial interface.
+- `src/`: the preserved original interface and the redesigned `critique-v2` editorial interface.
 - `scripts/build_data.py`: static website data contracts.
 - `scripts/flow_v2_data.py`: taxonomy, rankings, concentration and recipient-route logic.
 - `scripts/build_public_release.py`: sanitized DuckDB and CSV release builder.

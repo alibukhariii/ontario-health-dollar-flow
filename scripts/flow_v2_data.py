@@ -400,6 +400,9 @@ def build_category_payload(
             "payment_category": payment_category,
             "label": label,
             "positive_amount_cad": money(positive),
+            "positive_payment_line_count": sum(
+                1 for row in program_rows if Decimal(row["amount_cad"]) > 0
+            ),
             "adjustment_cad": money(adjustment),
             "net_amount_cad": money(positive + adjustment),
             "destinations": destination_rows,
@@ -416,6 +419,9 @@ def build_category_payload(
         "category_id": category_id,
         "label": CATEGORY_LABELS[category_id],
         "positive_amount_cad": money(positive_total),
+        "positive_payment_line_count": sum(
+            int(row["positive_payment_line_count"]) for row in programs
+        ),
         "adjustment_cad": money(adjustment_total),
         "net_amount_cad": money(positive_total + adjustment_total),
         "programs": programs,
@@ -861,6 +867,7 @@ def build_network_overview(
                 "category_id": category_id,
                 "ministry": ministry,
                 "amount_cad": money(amount),
+                "payment_line_count": int(row.get("positive_payment_line_count", 0)),
                 "not_itemized_amount_cad": money(not_itemized_amount),
             })
         categories.append({
@@ -869,6 +876,7 @@ def build_network_overview(
             "amount_cad": category_row["amount_cad"],
             "share_percent": category_row["share_percent"],
             "program_count": len(payload.get("programs", [])),
+            "payment_line_count": int(payload.get("positive_payment_line_count", 0)),
             "ministry_amounts": [
                 {"ministry": ministry, "amount_cad": money(amount)}
                 for ministry, amount in sorted(ministry_amounts.items())
@@ -1025,7 +1033,8 @@ def build_intermediary_payloads(
 
 
 def build_crosswalk(payments: Iterable[dict[str, str]]) -> list[dict[str, object]]:
-    keys = sorted({payment_key(row) for row in payments})
+    payment_rows = list(payments)
+    keys = sorted({payment_key(row) for row in payment_rows})
     rows = []
     for ministry, payment_category, payment_detail in keys:
         source = {
@@ -1034,6 +1043,11 @@ def build_crosswalk(payments: Iterable[dict[str, str]]) -> list[dict[str, object
             "payment_detail": payment_detail,
         }
         category_id = classify_payment(source)
+        matching = [
+            row for row in payment_rows
+            if payment_key(row) == (ministry, payment_category, payment_detail)
+            and Decimal(row["amount_cad"]) > 0
+        ]
         rows.append({
             **source,
             "category_id": category_id,
@@ -1041,6 +1055,8 @@ def build_crosswalk(payments: Iterable[dict[str, str]]) -> list[dict[str, object
             "mapping_rationale": CATEGORY_RATIONALES[category_id],
             "effective_period": FISCAL_YEAR,
             "mapping_status": "residual" if category_id == RESIDUAL_CATEGORY else "explicit",
+            "positive_payment_line_count": len(matching),
+            "positive_amount_cad": money(sum((Decimal(row["amount_cad"]) for row in matching), Decimal("0"))),
         })
     return rows
 

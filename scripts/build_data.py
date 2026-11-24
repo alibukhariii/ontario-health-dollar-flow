@@ -1660,6 +1660,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         payee_payloads,
         organization_payloads,
     )
+    network_overview["reviewed_entity_link_count"] = len(reviewed_links)
     taxonomy_crosswalk = flow_v2_data.build_crosswalk(payments)
     sample_fixture_path = public_input_root / "taxonomy-sample-fixture.json"
     taxonomy_sample = (

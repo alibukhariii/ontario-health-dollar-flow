@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en-CA">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Follow Ontario's 2025-26 published health-ministry payments from purpose to program to named recipient.">
+    <meta property="og:title" content="Where Ontario's Health Dollars Went">
+    <meta property="og:description" content="Why the money was paid, what program carried it and who was named.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://alibukhariii.github.io/ontario-health-dollar-flow/review-v2/social-preview.png">
+    <title>Where Ontario's Health Dollars Went - Review edition</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#explore">Skip to the visualization</a>
+    <main>
+      <header class="hero">
+        <div class="hero__kicker">Ontario health dollar flow · FY 2025-26</div>
+        <h1>Where Ontario's<br>Health Dollars Went</h1>
+        <p class="hero__claim">Of every $100 in positive payments published by Ontario's health ministries, about <strong>$28 went to hospital care</strong> and <strong>$24 to physicians, practitioners and other insured services.</strong></p>
+        <p class="hero__dek">Follow a published payment through three questions: <strong>Why</strong> was it paid? <strong>What</strong> program carried it? <strong>Who</strong> was named?</p>
+        <div class="hero__credit">Published by Quantika · Analysis and design: <a href="https://github.com/alibukhariii">Ali Bukhari</a> · Data as of 23 November 2026</div>
+      </header>
+
+      <section class="scope" aria-labelledby="scope-title">
+        <div>
+          <p class="eyebrow" id="scope-title">What the page counts</p>
+          <p><strong>$97.434B</strong> positive payment lines</p>
+        </div>
+        <div class="scope__negative">
+          <p class="eyebrow">Excluded from forward flows</p>
+          <p><strong>-$421.011M</strong> signed adjustment</p>
+        </div>
+        <div>
+          <p class="eyebrow">Net published payments</p>
+          <p><strong>$97.013B</strong></p>
+        </div>
+        <div>
+          <p class="eyebrow">Separate expense frame</p>
+          <p><strong>$92.286B</strong> ministry actual expense</p>
+        </div>
+      </section>
+      <p class="scope-note">The $97.434B total counts each positive Public Accounts payment line once. Payments Ontario Health reports onward are not added to it; they appear separately when selected. The $92.286B expense total uses a different Public Accounts presentation and is not a recipient-ranking denominator.</p>
+
+      <section class="explore" id="explore" aria-labelledby="explore-title">
+        <header class="explore__intro">
+          <div>
+            <p class="eyebrow">Why → What → Who</p>
+            <h2 id="explore-title">One system.<br>Three layers.</h2>
+          </div>
+          <p>The five widest meridians carry 81.8% of positive published payments. The other nine purposes expand below. Program squares sit on each meridian; the 25 largest named recipients are labelled, and the remaining 2,056 form the dust band.</p>
+        </header>
+
+        <div class="explore-tools">
+          <label class="search" for="recipient-search"><span>Find any named recipient</span><input id="recipient-search" type="search" autocomplete="off" placeholder="Try a hospital, municipality or agency"></label>
+          <div id="search-results" class="search-results" hidden></div>
+          <button type="button" id="reset-view">Reset story</button>
+          <button type="button" id="flatten-view" aria-pressed="false">Flatten the globe</button>
+          <button type="button" id="open-method">Method and data</button>
+        </div>
+
+        <div class="story-note" id="story-note"><strong>Opening path</strong><span>A community hospital can receive payments through several purposes and programs. Select any node or search to replace this example.</span></div>
+
+        <div class="visual-grid">
+          <div class="visual-stage" id="visual-stage" aria-busy="true">
+            <div id="globe"><p class="loading">Loading the reviewed payment view...</p></div>
+            <div id="flat-view" hidden></div>
+          </div>
+          <aside class="answer-rail" id="answer-rail" aria-live="polite">
+            <div id="answer-card"><p class="answer-placeholder">Choose a recipient to turn the diagram into an answer.</p></div>
+            <div id="comparison-card" hidden></div>
+          </aside>
+        </div>
+
+        <section class="concentration" aria-labelledby="concentration-title">
+          <div class="concentration__heading"><p class="eyebrow">Concentration</p><h3 id="concentration-title">The named long tail is not the same as unpublished recipients.</h3></div>
+          <div id="concentration-chart"></div>
+        </section>
+
+        <section class="purpose-key" aria-labelledby="purpose-title">
+          <div class="purpose-key__heading"><p class="eyebrow">Sector key</p><h3 id="purpose-title">Five large purposes and the nine smaller ones</h3><p>Widths and percentages use the same $97.434B denominator. Ribbons under 1% receive a visible floor and are marked as not to scale.</p></div>
+          <div id="purpose-list"></div>
+          <details class="primary-care-note"><summary>Why “Primary health care” is smaller than the physician line</summary><p>The Primary health care purpose contains published team and organization programs classified to that row. Physician billings and other insured services remain in “Physician, practitioner and other insured services,” including payments that may support primary care. The two rows should not be read as total primary-care spending versus non-primary-care spending.</p></details>
+        </section>
+
+        <div id="structured-view" class="structured-view"><!-- STATIC_REVIEW_V2 --></div>
+      </section>
+
+      <dialog id="method-dialog">
+        <button type="button" class="dialog-close" data-close-method>Close</button>
+        <p class="eyebrow">Method and evidence</p>
+        <h2>How the page was assembled</h2>
+        <p>The source is Ontario's 2025-26 Detailed Schedule of Payments. Each positive line is assigned to exactly one analytical purpose using its ministry, payment category and exact published program detail, never the recipient's name. Official program labels remain unchanged beneath that purpose.</p>
+        <p>The current release applies <strong><span id="identity-link-count">reviewed</span> identity-link decisions</strong>. Aliases are combined only where authoritative evidence supports the match. Unresolved labels remain separate. People are removed from the public recipient list while their aggregate amount remains in the total.</p>
+        <p>Operation of Hospitals combines base, targeted, activity-based and one-time funding. A consistent recipient-level split among HBAM, QBP and related mechanisms is not publicly available, so those mechanisms are not invented as amount-bearing branches.</p>
+        <div class="method-downloads">
+          <a href="../downloads/taxonomy-crosswalk.csv" download>Download the purpose crosswalk (CSV)</a>
+          <a href="../data/current.json">Open the release pointer (JSON)</a>
+          <a href="https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments">Open the payment schedule</a>
+          <a href="https://www.ontario.ca/page/public-accounts-2025-26-consolidated-financial-statements">Open the Public Accounts statements</a>
+        </div>
+      </dialog>
+
+      <aside class="profile-panel" id="profile-panel" hidden>
+        <button type="button" class="profile-panel__close" data-close-profile>Close</button>
+        <h2>Reported revenue and expenses</h2>
+        <div id="profile-content"></div>
+      </aside>
+    </main>
+    <p class="visually-hidden" id="status" aria-live="polite"></p>
+    <script type="module" src="app.mjs"></script>
+  </body>
+</html>
