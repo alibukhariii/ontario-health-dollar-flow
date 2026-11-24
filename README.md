@@ -16,6 +16,16 @@ The 2025–26 release follows **$97.434 billion in positive payments** published
 - Approved revenue and expense profiles for 134 hospital corporations and Ontario Health, linked to their source statements.
 - A public DuckDB database and matching CSV archive built from the same release contracts as the website.
 
+## Project-created datasets
+
+Three analysis-ready datasets are published under [`data/derived`](data/derived):
+
+- **Recipient funding routes:** 3,926 ministry → purpose → official program → named recipient routes with amounts and source lineage.
+- **Organization and alias index:** 2,084 published aliases attached to 2,081 ranked payees, with organization type and identity status.
+- **Harmonized financial statements:** 4,995 approved, source-native hospital and Ontario Health financial observations with page-level lineage.
+
+These files are derived from public records, but the connected routes, reviewed identities and harmonized statement observations are project-created. See the [dataset guide](data/README.md) for schemas, limitations and reproduction instructions.
+
 The main visual does not use the $97.013 billion net figure, the −$421.011 million pharmacy adjustment or the $92.286 billion ministry-expense frame. Those figures are documented in [the methodology](docs/METHODOLOGY.md).
 
 ## Run locally

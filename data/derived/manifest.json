@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0.0",
+  "fiscal_year": "2025-26",
+  "source_release": "Ontario Public Accounts 2025-26 and linked recipient statements",
+  "datasets": {
+    "recipient-funding-routes.csv": {
+      "rows": 3926,
+      "bytes": 2087008,
+      "sha256": "0d432f3363610fcbc84333d504c43fe310fd7bebb150738d26812407fb97df0d"
+    },
+    "organization-alias-index.csv": {
+      "rows": 2084,
+      "bytes": 375586,
+      "sha256": "10bcee0c38b59f49f6cef54067609947e78b5b418ac9990a8f4f0f7000cdaa76"
+    },
+    "harmonized-financial-statements.csv": {
+      "rows": 4995,
+      "bytes": 4093462,
+      "sha256": "a52806bb947648468852a6628ce0743d25236b737e87a5c4b38362ffa4489d8f"
+    }
+  }
+}
