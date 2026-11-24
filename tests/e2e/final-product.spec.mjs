@@ -12,18 +12,22 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__copy')).toContainText("Follow the money through Ontario's health system from the ministry to the recipient");
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
-  await expect(page.getByRole('heading', { name: 'Who received Ontario’s health dollars?' })).toBeVisible();
+  await expect(page.locator('#page-overview')).toContainText('Together, the MOH and MLTC spent $97.4B* in 2025–26.');
+  await expect(page.locator('#page-overview')).toContainText('$65.2B went to 2,081 named recipients.');
+  await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized.');
+  await expect(page.locator('#page-overview')).toContainText('$97.0B net after a −$421.0M');
+  await expect(page.locator('#page-overview .network-source')).toBeVisible();
+  await expect(page.locator('#page-network .network-source')).toHaveCount(0);
   await expect(page.locator('[data-category-id]')).toHaveCount(14);
   await expect(page.locator('[data-program-key]')).toHaveCount(74);
   await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('$32.3B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('Source note');
-  await expect(page.locator('.coverage-split__itemized')).toContainText('$65.2B');
-  await expect(page.locator('.coverage-split__aggregate')).toContainText('$32.3B');
-  await expect(page.locator('.network-intro')).toContainText('$65.2B went to 2,081 named recipients');
-  await expect(page.locator('.network-net-note')).toContainText('$97.0B net');
+  await expect(page.locator('.recipient-coverage-note')).not.toContainText('Source note');
+  await expect(page.locator('.coverage-split__itemized')).toHaveCount(0);
+  await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
+  await expect(page.locator('.size-key')).toHaveCount(0);
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
 });
 
@@ -33,6 +37,13 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
   await page.locator('[data-category-id="hospital_care"]').click();
   await expect(page.locator('.program-focus-status')).toContainText('Hospital care');
   await expect(page.locator('.program-node__index')).toHaveCount(4);
+  await expect(page.locator('.program-node.is-context')).toHaveCount(70);
+  await expect(page.locator('.scale-step--programs')).toHaveAttribute('aria-current', 'step');
+  await page.locator('[data-program-key]').filter({ has: page.locator('.program-node__index') }).first().click();
+  await expect(page.locator('.scale-step--recipients')).toHaveAttribute('aria-current', 'step');
+  await expect(page.locator('.program-node.is-selected')).toHaveCount(1);
+  await expect(page.locator('.recipient-node.is-scale-active')).not.toHaveCount(0);
+  await page.locator('[data-program-focus-back]').click();
   await page.locator('[data-program-focus-back]').click();
 
   await page.locator('[data-category-id="ministry_operations_and_other_published_payments"]').click();
@@ -100,7 +111,7 @@ test('recipient deep links contain useful HTML when JavaScript is disabled', asy
   const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
   const page = await context.newPage();
   await page.goto(`/recipient/${recipient.recipient_id}/`);
-  await expect(page.getByRole('heading', { name: 'Ontario Health' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ontario Health', exact: true })).toBeVisible();
   await expect(page.locator('.static-recipient')).toContainText('$12.0B');
   await expect(page.locator('.static-recipient')).toContainText('Home Care');
   await expect(page.getByText('Loading the published payment network…')).toHaveCount(0);

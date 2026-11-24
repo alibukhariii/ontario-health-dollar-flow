@@ -33,6 +33,7 @@ let focusRequestId = 0;
 let hoverTimer = null;
 let recipientOffset = 0;
 let focusedCategoryId = null;
+let focusedProgramKey = null;
 const payeeCache = new Map();
 const optionalCache = new Map();
 
@@ -100,6 +101,14 @@ function setActiveNode(recipientId) {
     node.classList.toggle('is-active', node.dataset.visualRecipientId === recipientId);
     node.classList.toggle('is-muted', Boolean(recipientId) && node.dataset.visualRecipientId !== recipientId);
   }
+  const scale = recipientId ? 'recipients' : layout?.focusScale ?? 'categories';
+  for (const step of elements.canvas.querySelectorAll('.scale-step')) {
+    const active = step.classList.contains(`scale-step--${scale}`);
+    if (active) step.setAttribute('aria-current', 'step');
+    else step.removeAttribute('aria-current');
+  }
+  const svg = elements.canvas.querySelector('.funding-network');
+  if (svg) svg.dataset.focusScale = scale;
 }
 
 function applyRecipientTypeFilter() {
@@ -110,8 +119,10 @@ function applyRecipientTypeFilter() {
 }
 
 function renderCurrentNetwork() {
-  layout = layoutFundingNetwork(contract, { recipientOffset, focusedCategoryId });
+  layout = layoutFundingNetwork(contract, { recipientOffset, focusedCategoryId, focusedProgramKey });
   elements.canvas.innerHTML = renderFundingNetwork(layout, contract);
+  elements.canvas.classList.remove('is-entering');
+  requestAnimationFrame(() => elements.canvas.classList.add('is-entering'));
   applyRecipientTypeFilter();
 }
 
@@ -121,6 +132,7 @@ function showRecipientInZoom(recipientId) {
   const pageSize = contract.displayed_recipient_count ?? 50;
   recipientOffset = Math.floor(index / pageSize) * pageSize;
   focusedCategoryId = null;
+  focusedProgramKey = null;
   renderCurrentNetwork();
   return true;
 }
@@ -145,10 +157,6 @@ function closeRecipientFocus({ updateHistory = true } = {}) {
 
 async function focusRecipient(recipientId, { pin = false, history = false } = {}) {
   if (!layout) return;
-  if (focusedCategoryId) {
-    focusedCategoryId = null;
-    renderCurrentNetwork();
-  }
   let recipient = layout.recipientById.get(recipientId);
   if (!recipient || recipient.hiddenRecipientId) {
     if (!showRecipientInZoom(recipientId)) return;
@@ -247,21 +255,34 @@ function bindNetworkEvents() {
     if (category) {
       closeRecipientFocus({ updateHistory: false });
       focusedCategoryId = category.dataset.categoryId;
+      focusedProgramKey = null;
+      recipientOffset = 0;
       renderCurrentNetwork();
       announce(`Programs in ${layout.focusedCategory?.label ?? 'the selected funding purpose'} are expanded.`);
       return;
     }
-    if (event.target.closest('[data-program-focus-back]')) {
-      focusedCategoryId = null;
+    const program = event.target.closest('[data-program-key]');
+    if (program) {
+      closeRecipientFocus({ updateHistory: false });
+      focusedProgramKey = program.dataset.programKey;
+      recipientOffset = 0;
       renderCurrentNetwork();
-      announce('All funding purposes and programs are visible.');
+      announce(`Named recipients of ${layout.focusedProgram?.label ?? 'the selected program'} are expanded.`);
+      return;
+    }
+    if (event.target.closest('[data-program-focus-back]')) {
+      if (focusedProgramKey) focusedProgramKey = null;
+      else focusedCategoryId = null;
+      recipientOffset = 0;
+      renderCurrentNetwork();
+      announce(focusedCategoryId ? `Returned to programs in ${layout.focusedCategory?.label}.` : 'All funding purposes and programs are visible.');
       return;
     }
     const node = event.target.closest('[data-recipient-id]');
     if (node) focusRecipient(node.dataset.recipientId, { pin: true, history: true });
   });
   elements.canvas.addEventListener('keydown', (event) => {
-    const control = event.target.closest('[data-recipient-zoom-offset],[data-category-id]');
+    const control = event.target.closest('[data-recipient-zoom-offset],[data-category-id],[data-program-key]');
     if (control && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -342,7 +363,12 @@ window.addEventListener('popstate', async () => {
   else clearFocus({ force: true });
 });
 
+const overview = document.querySelector('#page-overview');
 if ('IntersectionObserver' in window) {
+  const overviewObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) if (entry.isIntersecting) entry.target.classList.add('is-visible');
+  }, { threshold: 0.55 });
+  overviewObserver.observe(overview);
   const observer = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) {
       loadNetwork();
@@ -351,5 +377,6 @@ if ('IntersectionObserver' in window) {
   }, { rootMargin: '500px' });
   observer.observe(document.querySelector('#page-network'));
 } else {
+  overview.classList.add('is-visible');
   loadNetwork();
 }

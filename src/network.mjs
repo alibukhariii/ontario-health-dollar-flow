@@ -121,7 +121,7 @@ function shortProgramLabel(label) {
   return clean.length > 32 ? `${clean.slice(0, 29).trim()}…` : clean;
 }
 
-export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCategoryId = null } = {}) {
+export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCategoryId = null, focusedProgramKey = null } = {}) {
   const total = contract.positive_published_payments_cad;
   const categories = contract.categories.map((row, index) => {
     const angle = -Math.PI / 2 + index * (Math.PI * 2 / contract.categories.length);
@@ -145,18 +145,37 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
         angle, r: 9, labelByDefault: index === 0 });
     });
   }
-  let programs = allPrograms;
+  let programs = allPrograms.map((row) => ({ ...row, isContext: !focusedCategoryId }));
   if (focusedCategoryId) {
     const focusedRows = allPrograms.filter((row) => row.category_id === focusedCategoryId);
-    programs = focusedRows.map((row, index) => {
+    const focusedIndexes = new Map(focusedRows.map((row, index) => [row.program_key, index]));
+    programs = allPrograms.map((row) => {
+      if (!focusedIndexes.has(row.program_key)) return { ...row, isContext: true, labelByDefault: false };
+      const index = focusedIndexes.get(row.program_key);
       const angle = -Math.PI / 2 + index * (Math.PI * 2 / Math.max(focusedRows.length, 1));
-      return { ...row, ...polar(CENTRE_X, CENTRE_Y, PROGRAM_RING, angle), angle, r: 14,
-        labelByDefault: false, categoryFocused: true, programIndex: index + 1 };
+      return { ...row, ...polar(CENTRE_X, CENTRE_Y, PROGRAM_RING, angle), angle,
+        r: row.program_key === focusedProgramKey ? 20 : 14, labelByDefault: false,
+        categoryFocused: true, programIndex: index + 1, isContext: false,
+        isSelected: row.program_key === focusedProgramKey };
     });
   }
+  const focusedProgram = programs.find((row) => row.program_key === focusedProgramKey) ?? null;
+  const programRouteAmounts = new Map();
+  if (focusedProgram) {
+    for (const route of contract.named_routes ?? []) {
+      if (route.program_key !== focusedProgram.program_key) continue;
+      programRouteAmounts.set(route.recipient_id, (programRouteAmounts.get(route.recipient_id) ?? 0) + Number(route.amount_cad));
+    }
+  }
+  const recipientUniverse = focusedProgram
+    ? [...programRouteAmounts.entries()].map(([recipientId, amount]) => {
+      const recipient = contract.recipients.find((row) => row.recipient_id === recipientId);
+      return recipient ? { ...recipient, global_amount_cad: recipient.amount_cad, amount_cad: amount, program_amount_cad: amount } : null;
+    }).filter(Boolean).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad) || Number(a.global_rank) - Number(b.global_rank))
+    : contract.recipients;
   const pageSize = contract.displayed_recipient_count ?? 50;
-  const offset = Math.max(0, Math.min(Number(recipientOffset) || 0, Math.max(0, contract.recipients.length - 1)));
-  const recipientGroup = contract.recipients.slice(offset);
+  const offset = Math.max(0, Math.min(Number(recipientOffset) || 0, Math.max(0, recipientUniverse.length - 1)));
+  const recipientGroup = recipientUniverse.slice(offset);
   const displayed = recipientGroup.slice(0, pageSize);
   const remaining = recipientGroup.slice(pageSize);
   const recipientScaleTotal = recipientGroup.reduce((sum, row) => sum + Number(row.amount_cad), 0);
@@ -178,6 +197,7 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
   const aggregateRoutes = new Map();
   const visibleRoutes = [];
   for (const route of contract.named_routes ?? []) {
+    if (focusedProgram && route.program_key !== focusedProgram.program_key) continue;
     if (visibleIds.has(route.recipient_id)) visibleRoutes.push({ ...route, target_type: 'named_recipient' });
     else if (remainingIds.has(route.recipient_id)) {
       aggregateRoutes.set(route.program_key, (aggregateRoutes.get(route.program_key) ?? 0) + Number(route.amount_cad));
@@ -189,12 +209,13 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
   const visibleProgramKeys = new Set(programs.map((row) => row.program_key));
   const filteredRoutes = visibleRoutes.filter((row) => visibleProgramKeys.has(row.program_key));
   const focusedCategory = categories.find((row) => row.category_id === focusedCategoryId) ?? null;
+  const focusScale = focusedProgram ? 'recipients' : focusedCategory ? 'programs' : 'categories';
   return { width: SVG_WIDTH, height: SVG_HEIGHT, cx: CENTRE_X, cy: CENTRE_Y,
     recipientBoundary: RECIPIENT_BOUNDARY, categories, programs, allPrograms, recipients,
     recipientOffset: offset, recipientPageSize: pageSize, recipientScaleTotal,
     recipientWindowStart: displayed.length ? offset + 1 : 0, recipientWindowEnd: offset + displayed.length,
-    recipientCount: contract.recipients.length, remainingCount: remaining.length,
-    focusedCategoryId, focusedCategory, visibleRoutes: filteredRoutes,
+    recipientCount: recipientUniverse.length, remainingCount: remaining.length,
+    focusedCategoryId, focusedCategory, focusedProgramKey, focusedProgram, focusScale, visibleRoutes: filteredRoutes,
     categoryById: new Map(categories.map((row) => [row.category_id, row])),
     programByKey: new Map(programs.map((row) => [row.program_key, row])), recipientById };
 }
@@ -246,29 +267,17 @@ function recipientNode(recipient) {
     ? `data-recipient-id="${escapeHtml(recipient.recipient_id)}" data-recipient-path="${escapeHtml(recipient.path)}" role="button" tabindex="0"`
     : zoomControl ? `data-recipient-zoom-offset="${recipient.zoomOffset}" role="button" tabindex="0"` : '';
   const zoomHint = zoomControl ? `Zoom to next ${Number(recipient.zoomCount).toLocaleString('en-CA')}` : '';
-  return `<g class="recipient-node${aggregateClass}${intermediaryClass}${type}" data-visual-recipient-id="${escapeHtml(recipient.recipient_id)}" data-payee-type="${escapeHtml(recipient.payee_type)}" ${controlAttributes} aria-label="${escapeHtml(`${displayLabel(recipient.label)}, ${formatCad(recipient.amount_cad)}${recipient.global_rank ? `, rank ${recipient.global_rank}` : ''}${zoomControl ? `, ${zoomHint}` : ''}`)}">
+  const scaleClass = recipient.isContext ? ' is-context' : recipient.isScaleActive ? ' is-scale-active' : '';
+  return `<g class="recipient-node${aggregateClass}${intermediaryClass}${type}${scaleClass}" data-visual-recipient-id="${escapeHtml(recipient.recipient_id)}" data-payee-type="${escapeHtml(recipient.payee_type)}" ${controlAttributes} aria-label="${escapeHtml(`${displayLabel(recipient.label)}, ${formatCad(recipient.amount_cad)}${recipient.global_rank ? `, rank ${recipient.global_rank}` : ''}${zoomControl ? `, ${zoomHint}` : ''}`)}">
     <circle cx="${recipient.x.toFixed(1)}" cy="${recipient.y.toFixed(1)}" r="${recipient.r.toFixed(1)}"/>
     ${showLabel ? `<text x="${recipient.x.toFixed(1)}" y="${recipient.y.toFixed(1)}" text-anchor="middle">${tspans(wrapLabel(recipient.label, recipient.aggregate_kind ? 21 : 15), recipient.x, recipient.y - (zoomControl ? 17 : 7), 14)}<tspan class="recipient-node__amount" x="${recipient.x.toFixed(1)}" y="${(recipient.y + Math.min(recipient.r * 0.38, 23)).toFixed(1)}">${formatCad(recipient.amount_cad)}</tspan>${zoomControl ? `<tspan class="recipient-node__hint" x="${recipient.x.toFixed(1)}" y="${(recipient.y + Math.min(recipient.r * 0.62, 40)).toFixed(1)}">${escapeHtml(zoomHint)}</tspan>` : ''}</text>` : ''}
   </g>`;
 }
 
-function sizeLegend(layout) {
-  const total = Math.max(1, Number(layout.recipientScaleTotal));
-  const largestPower = 10 ** Math.floor(Math.log10(Math.max(1, total / 5)));
-  const values = [largestPower / 100, largestPower / 10, largestPower].filter((value) => value >= 1);
-  const xPositions = [28, 105, 235];
-  const baseline = 94;
-  return `<div class="size-key-wrap"><strong>Recipient scale · ${formatCad(total)} in this view</strong><svg class="size-key" viewBox="0 0 320 150" aria-label="Recipient circle area represents dollars within this zoom level">${values.map((value, index) => {
-    const r = globalRadius(value, total, 5);
-    const x = xPositions[index];
-    return `<circle cx="${x}" cy="${baseline - r}" r="${r}"/><text x="${x}" y="142" text-anchor="middle">${formatCad(value)}</text>`;
-  }).join('')}</svg></div>`;
-}
-
 export function renderFundingNetwork(layout, contract) {
   const categoryProgramLines = layout.programs.map((program) => {
     const category = layout.categoryById.get(program.category_id);
-    return lineBetween(category, program, `network-edge network-edge--${ministryClass(program.ministry)}`,
+    return lineBetween(category, program, `network-edge network-edge--${ministryClass(program.ministry)}${program.isContext ? ' is-context' : ''}${program.isSelected ? ' is-selected' : ''}`,
       `stroke-width="${routeWidth(program.amount_cad, contract.positive_published_payments_cad).toFixed(2)}" marker-end="url(#arrow-${ministryClass(program.ministry)})"`);
   }).join('');
   const defaultLines = layout.visibleRoutes.map((route) => {
@@ -276,7 +285,9 @@ export function renderFundingNetwork(layout, contract) {
     const recipient = layout.recipientById.get(route.recipient_id);
     if (!program || !recipient) return '';
     const intermediary = recipient.is_intermediary ? ' network-edge--intermediary' : '';
-    return lineBetween(program, recipient, `network-edge network-edge--recipient${intermediary}`,
+    const focused = layout.focusedProgramKey && route.program_key === layout.focusedProgramKey ? ' is-selected' : '';
+    const context = focused ? '' : ' is-context';
+    return lineBetween(program, recipient, `network-edge network-edge--recipient${intermediary}${focused}${context}`,
       `data-target_type="${escapeHtml(route.target_type)}" stroke-width="${routeWidth(route.amount_cad, contract.positive_published_payments_cad).toFixed(2)}" marker-end="url(#arrow-recipient)"`);
   }).join('');
   const gradients = layout.categories.filter((row) => row.colour === 'mixed').map((category) => {
@@ -292,7 +303,8 @@ export function renderFundingNetwork(layout, contract) {
     const outward = polar(category.x, category.y, category.r + 96, category.angle);
     const amountY = outward.y + ((labelLines.length - 1) * 16) / 2 + 25;
     const selected = layout.focusedCategoryId === category.category_id ? ' is-category-selected' : '';
-    return `<g class="category-node${selected}" data-category-id="${escapeHtml(category.category_id)}" role="button" tabindex="0" aria-label="${escapeHtml(`${displayLabel(category.label)}, ${formatCad(category.amount_cad)}. Select to spread out its programs.`)}"><line class="category-node__hit" x1="${category.x.toFixed(1)}" y1="${category.y.toFixed(1)}" x2="${outward.x.toFixed(1)}" y2="${amountY.toFixed(1)}"/><line class="category-node__leader" x1="${leaderStart.x.toFixed(1)}" y1="${leaderStart.y.toFixed(1)}" x2="${leaderEnd.x.toFixed(1)}" y2="${leaderEnd.y.toFixed(1)}"/><circle cx="${category.x.toFixed(1)}" cy="${category.y.toFixed(1)}" r="${category.r.toFixed(1)}" fill="${fill}"/><text class="category-node__label text-halo" text-anchor="middle">${tspans(labelLines, outward.x, outward.y, 16)}</text><text class="category-node__amount text-halo" x="${outward.x.toFixed(1)}" y="${amountY.toFixed(1)}" text-anchor="middle">${formatCad(category.amount_cad)}</text></g>`;
+    const context = layout.focusedCategoryId && !selected ? ' is-context' : '';
+    return `<g class="category-node${selected}${context}" data-category-id="${escapeHtml(category.category_id)}" role="button" tabindex="0" aria-label="${escapeHtml(`${displayLabel(category.label)}, ${formatCad(category.amount_cad)}. Select to spread out its programs.`)}"><line class="category-node__hit" x1="${category.x.toFixed(1)}" y1="${category.y.toFixed(1)}" x2="${outward.x.toFixed(1)}" y2="${amountY.toFixed(1)}"/><line class="category-node__leader" x1="${leaderStart.x.toFixed(1)}" y1="${leaderStart.y.toFixed(1)}" x2="${leaderEnd.x.toFixed(1)}" y2="${leaderEnd.y.toFixed(1)}"/><circle cx="${category.x.toFixed(1)}" cy="${category.y.toFixed(1)}" r="${category.r.toFixed(1)}" fill="${fill}"/><text class="category-node__label text-halo" text-anchor="middle">${tspans(labelLines, outward.x, outward.y, 16)}</text><text class="category-node__amount text-halo" x="${outward.x.toFixed(1)}" y="${amountY.toFixed(1)}" text-anchor="middle">${formatCad(category.amount_cad)}</text></g>`;
   }).join('');
   const programNodes = layout.programs.map((program) => {
     const labelPoint = polar(program.x, program.y, program.categoryFocused ? 58 : 42, program.angle);
@@ -300,14 +312,18 @@ export function renderFundingNetwork(layout, contract) {
     const lines = program.categoryFocused ? wrapLabel(program.label, 26, 4) : [shortProgramLabel(program.label)];
     const focusedIndex = program.categoryFocused
       ? `<text class="program-node__index" x="${program.x.toFixed(1)}" y="${(program.y + 4).toFixed(1)}" text-anchor="middle">${program.programIndex}</text>` : '';
-    return `<g class="program-node network-program--${ministryClass(program.ministry)}" data-program-key="${escapeHtml(program.program_key)}"><title>${escapeHtml(`${displayLabel(program.label)}, ${formatCad(program.amount_cad)}`)}</title><circle cx="${program.x.toFixed(1)}" cy="${program.y.toFixed(1)}" r="${program.r.toFixed(1)}"/>${focusedIndex}${program.labelByDefault ? `<text class="program-node__label text-halo" text-anchor="${anchor}">${tspans(lines, labelPoint.x, labelPoint.y, 16)}</text>` : ''}</g>`;
+    const state = `${program.isContext ? ' is-context' : ''}${program.isSelected ? ' is-selected' : program.categoryFocused ? ' is-scale-active' : ''}`;
+    return `<g class="program-node${state} network-program--${ministryClass(program.ministry)}" data-program-key="${escapeHtml(program.program_key)}" role="button" tabindex="0" aria-label="${escapeHtml(`${displayLabel(program.label)}, ${formatCad(program.amount_cad)}. Select to view its named recipients.`)}"><title>${escapeHtml(`${displayLabel(program.label)}, ${formatCad(program.amount_cad)}`)}</title><circle cx="${program.x.toFixed(1)}" cy="${program.y.toFixed(1)}" r="${program.r.toFixed(1)}"/>${focusedIndex}${program.labelByDefault ? `<text class="program-node__label text-halo" text-anchor="${anchor}">${tspans(lines, labelPoint.x, labelPoint.y, 16)}</text>` : ''}</g>`;
   }).join('');
   const ministryTotals = new Map(contract.ministries.map((row) => [row.ministry, row.positive_amount_cad]));
-  const focusedStatus = layout.focusedCategory
-    ? `<div class="program-focus-status network-view-status"><button type="button" data-program-focus-back>All funding purposes</button><span>Showing ${layout.programs.length} ${layout.programs.length === 1 ? 'program' : 'programs'} in <strong>${escapeHtml(layout.focusedCategory.label)}</strong></span></div>`
+  const focusedCategoryPrograms = layout.programs.filter((row) => row.category_id === layout.focusedCategoryId);
+  const focusedStatus = layout.focusedProgram
+    ? `<div class="program-focus-status network-view-status"><button type="button" data-program-focus-back>Back to ${escapeHtml(layout.focusedCategory.label)} programs</button><span>Recipients of <strong>${escapeHtml(displayLabel(layout.focusedProgram.label))}</strong></span></div>`
+    : layout.focusedCategory
+    ? `<div class="program-focus-status network-view-status"><button type="button" data-program-focus-back>All funding purposes</button><span>Showing ${focusedCategoryPrograms.length} ${focusedCategoryPrograms.length === 1 ? 'program' : 'programs'} in <strong>${escapeHtml(layout.focusedCategory.label)}</strong></span></div>`
     : '<p class="network-view-prompt">Select a funding purpose to spread out and read every program.</p>';
-  const programFocusList = layout.focusedCategory
-    ? `<ol class="program-focus-list" aria-label="Programs in ${escapeHtml(layout.focusedCategory.label)}">${layout.programs.map((program) => `<li class="program-focus-list__item"><span class="program-focus-list__index">${program.programIndex}</span><span><strong>${escapeHtml(displayLabel(program.label))}</strong><small>${escapeHtml(displayLabel(program.ministry))}</small></span><b>${formatCad(program.amount_cad)}</b></li>`).join('')}</ol>`
+  const programFocusList = layout.focusedCategory && !layout.focusedProgram
+    ? `<ol class="program-focus-list" aria-label="Programs in ${escapeHtml(layout.focusedCategory.label)}">${focusedCategoryPrograms.map((program) => `<li class="program-focus-list__item" data-program-key="${escapeHtml(program.program_key)}" role="button" tabindex="0"><span class="program-focus-list__index">${program.programIndex}</span><span><strong>${escapeHtml(displayLabel(program.label))}</strong><small>${escapeHtml(displayLabel(program.ministry))}</small></span><b>${formatCad(program.amount_cad)}</b></li>`).join('')}</ol>`
     : '';
   const zoomBack = layout.recipientOffset > 0
     ? `<button type="button" data-recipient-zoom-back="${Math.max(0, layout.recipientOffset - layout.recipientPageSize)}">Back one recipient level</button>` : '';
@@ -315,8 +331,10 @@ export function renderFundingNetwork(layout, contract) {
   const total = Number(contract.positive_published_payments_cad);
   const namedShare = total ? Number(contract.named_destination_amount_cad) / total * 100 : 0;
   const aggregateShare = Math.max(0, 100 - namedShare);
-  const coverageNote = `<aside class="recipient-coverage-note"><span class="recipient-coverage-note__label">Source note</span><div class="coverage-split" aria-label="Published-payment coverage"><span class="coverage-split__itemized" style="--coverage-share:${namedShare.toFixed(4)}%"><b>${formatCad(contract.named_destination_amount_cad)}</b> itemized to named recipients</span><span class="coverage-split__aggregate" style="--coverage-share:${aggregateShare.toFixed(4)}%"><b>${formatCad(contract.not_itemized_to_public_recipient_cad)}</b> published in aggregate</span></div><p><strong>${formatCad(contract.not_itemized_to_public_recipient_cad)}</strong> (${escapeHtml(contract.not_itemized_share_percent)}%) cannot be assigned to a named recipient. It remains in the ${formatCad(contract.positive_published_payments_cad)} total but stops before the recipient layer. Recipient circles show the <strong>${formatCad(contract.named_destination_amount_cad)}</strong> itemized to ${contract.named_recipient_count.toLocaleString('en-CA')} named recipients.</p></aside>`;
-  return `${coverageNote}${focusedStatus}${programFocusList}${zoomStatus}<svg class="funding-network" viewBox="-220 -120 ${layout.width + 440} ${layout.height + 240}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen funding purposes connect to published programs and a zoomable view of named recipients. Amounts published only in aggregate stop before the recipient layer.</desc><defs>${gradients}<marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--ink)"/></marker></defs><circle class="orbit orbit--category" cx="${layout.cx}" cy="${layout.cy}" r="${CATEGORY_RING}"/><circle class="orbit orbit--program" cx="${layout.cx}" cy="${layout.cy}" r="${PROGRAM_RING}"/><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - CATEGORY_RING - 10}" text-anchor="middle">Funding purposes</text><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - PROGRAM_RING - 10}" text-anchor="middle">Programs</text><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - RECIPIENT_BOUNDARY - 10}" text-anchor="middle">Named recipients</text><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${layout.recipients.map(recipientNode).join('')}</g></svg><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health · ${formatCad(ministryTotals.get(MOH))}</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care · ${formatCad(ministryTotals.get(MLTC))}</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Intermediary route</span><span><i class="legend-outline legend-outline--provider"></i>Provider</span><span><i class="legend-outline legend-outline--government"></i>Government or municipality</span><span><i class="legend-outline legend-outline--vendor"></i>Vendor</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary recipient</span>${sizeLegend(layout)}</div>${renderMobileNetwork(contract)}`;
+  const coverageNote = `<p class="recipient-coverage-note"><strong>${formatCad(contract.not_itemized_to_public_recipient_cad)}</strong> (${escapeHtml(contract.not_itemized_share_percent)}%) stops before the named-recipient layer because it was not itemized.</p>`;
+  const scaleGuide = `<div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
+  const recipientRows = layout.recipients.map((recipient) => recipientNode({ ...recipient, isContext: layout.focusScale !== 'recipients', isScaleActive: layout.focusScale === 'recipients' })).join('');
+  return `${coverageNote}${scaleGuide}${focusedStatus}${programFocusList}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-220 -120 ${layout.width + 440} ${layout.height + 240}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen funding purposes connect to published programs and a zoomable view of named recipients. The selected scale is emphasized while the other system layers remain visible as context.</desc><defs>${gradients}<marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--ink)"/></marker></defs><circle class="orbit orbit--category" cx="${layout.cx}" cy="${layout.cy}" r="${CATEGORY_RING}"/><circle class="orbit orbit--program" cx="${layout.cx}" cy="${layout.cy}" r="${PROGRAM_RING}"/><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - CATEGORY_RING - 10}" text-anchor="middle">Funding purposes</text><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - PROGRAM_RING - 10}" text-anchor="middle">Programs</text><text class="orbit-label text-halo" x="${layout.cx}" y="${layout.cy - RECIPIENT_BOUNDARY - 10}" text-anchor="middle">Named recipients</text><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g></svg><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health · ${formatCad(ministryTotals.get(MOH))}</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care · ${formatCad(ministryTotals.get(MLTC))}</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Intermediary route</span><span><i class="legend-outline legend-outline--provider"></i>Provider</span><span><i class="legend-outline legend-outline--government"></i>Government or municipality</span><span><i class="legend-outline legend-outline--vendor"></i>Vendor</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary recipient</span></div>${renderMobileNetwork(contract)}`;
 }
 
 export function renderRecipientFocus(layout, payload) {

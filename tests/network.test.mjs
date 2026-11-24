@@ -94,16 +94,16 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   assert.match(html, /recipient-node--intermediary/);
   assert.match(html, /Ministry of Health/);
   assert.match(html, /Ministry of Long-Term Care/);
-  assert.match(html, /\$25.*published only in aggregate/i);
-  assert.match(html, /Source note/);
-  assert.match(html, /coverage-split__itemized/);
-  assert.match(html, /coverage-split__aggregate/);
+  assert.match(html, /\$25.*stops before the named-recipient layer/i);
+  assert.doesNotMatch(html, /Source note/);
+  assert.doesNotMatch(html, /coverage-split__itemized/);
+  assert.doesNotMatch(html, /coverage-split__aggregate/);
   assert.match(html, /Zoom to next 1/);
   assert.match(html, /role="group"/);
   assert.match(html, /Funding purposes/);
   assert.match(html, /Programs/);
   assert.match(html, /Named recipients/);
-  assert.match(html, /Recipient scale/);
+  assert.doesNotMatch(html, /Recipient scale/);
 
   const tail = network.layoutFundingNetwork(fixture, { recipientOffset: 2 });
   assert.equal(tail.recipients.length, 1);
@@ -117,14 +117,41 @@ test('recipient layout excludes non-itemized money and pages through the named-r
 test('category focus spreads every program in the selected category and exposes readable labels', () => {
   const focused = network.layoutFundingNetwork(fixture, { focusedCategoryId: 'hospital_care' });
   const html = network.renderFundingNetwork(focused, fixture);
-  assert.equal(focused.programs.length, 1);
+  assert.equal(focused.programs.length, fixture.programs.length);
+  assert.equal(focused.focusScale, 'programs');
+  assert.equal(focused.programs.filter((row) => row.isContext).length, 1);
   assert.equal((html.match(/class="program-node__label/g) ?? []).length, 0);
   assert.equal((html.match(/class="program-focus-list__item/g) ?? []).length, 1);
   assert.match(html, /class="program-node__index"/);
+  assert.match(html, /program-node is-context/);
+  assert.match(html, /category-node is-context/);
+  assert.match(html, /recipient-node[^>]*is-context/);
+  assert.match(html, /data-focus-scale="programs"/);
+  assert.match(html, /scale-step--programs" aria-current="step"/);
   assert.match(html, /Showing 1 program in <strong>Hospital care<\/strong>/);
   assert.match(html, /data-program-focus-back/);
   assert.match(html, /category-node__leader/);
   assert.match(html, /category-node__hit/);
+});
+
+test('program focus keeps every system layer visible while repacking that program’s recipients', () => {
+  const programKey = fixture.programs[0].program_key;
+  const focused = network.layoutFundingNetwork(fixture, {
+    focusedCategoryId: 'hospital_care',
+    focusedProgramKey: programKey,
+  });
+  const html = network.renderFundingNetwork(focused, fixture);
+  assert.equal(focused.focusScale, 'recipients');
+  assert.equal(focused.programs.length, fixture.programs.length);
+  assert.deepEqual(focused.recipients.filter((row) => !row.aggregate_kind).map((row) => row.recipient_id), ['a', 'c']);
+  assert.equal(focused.recipientScaleTotal, 91);
+  assert.match(html, /data-focus-scale="recipients"/);
+  assert.match(html, /scale-step--recipients" aria-current="step"/);
+  assert.match(html, /program-node[^>]*is-selected/);
+  assert.match(html, /data-program-key=/);
+  assert.match(html, /Back to Hospital care programs/);
+  assert.match(html, /Recipients of <strong>Operations<\/strong>/);
+  assert.match(html, /recipient-node[^>]*is-scale-active/);
 });
 
 test('active route renderer ranks every published route and uses dotted paths for intermediaries', () => {

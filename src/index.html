@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <a class="skip-link" href="#page-network">Skip to the funding network</a>
+    <a class="skip-link" href="#page-overview">Skip to the published-payment overview</a>
     <main>
       <section class="landing" id="page-landing" aria-labelledby="landing-title">
         <div class="landing__copy">
@@ -22,12 +22,21 @@
         <span class="landing__rule" aria-hidden="true"></span>
       </section>
 
-      <section class="network-page" id="page-network" aria-labelledby="network-title">
-        <header class="network-intro">
-          <h2 id="network-title">Who received Ontario’s health dollars?</h2>
-          <div class="network-intro__figures"><p><strong>$97.4B</strong> in positive published payments; <strong>$65.2B</strong> went to <strong id="recipient-count">2,081 named recipients</strong> and <strong>$32.3B</strong> was not itemized.</p><p class="network-net-note"><strong>$97.0B net</strong> after a −$421.0M Ontario Government Pharmacy adjustment. The adjustment is excluded from the forward flow because it is a signed reconciliation rather than a positive recipient payment.</p></div>
+      <section class="overview-page" id="page-overview" aria-labelledby="overview-title">
+        <div class="overview-statement">
+          <h2 class="visually-hidden" id="overview-title">Ontario health-ministry published payments</h2>
+          <p class="overview-statement__lead">Together, the <strong>MOH and MLTC</strong> spent <strong>$97.4B<sup>*</sup></strong> in 2025–26.</p>
+          <p><strong>$65.2B</strong> went to <strong id="recipient-count">2,081 named recipients</strong>.</p>
+          <p><strong>$32.3B (33.1%)</strong> was not itemized.</p>
+        </div>
+        <footer class="overview-notes">
+          <p class="network-net-note"><sup>*</sup><strong>$97.0B net</strong> after a −$421.0M Ontario Government Pharmacy adjustment. The adjustment is excluded from the forward flow because it is a signed reconciliation rather than a positive recipient payment.</p>
           <p class="network-source">Source: <a href="https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments">Ontario Public Accounts 2025–26 Detailed Schedules of Payments</a></p>
-        </header>
+        </footer>
+      </section>
+
+      <section class="network-page" id="page-network" aria-labelledby="network-title">
+        <h2 class="visually-hidden" id="network-title">Explore the published payment network</h2>
 
         <div class="network-tools">
           <label class="network-search" for="recipient-search">
