@@ -112,9 +112,6 @@ a { color:inherit; }
 .program-focus-list__item > b { font-size:.72rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .program-focus-list__index { width:1.35rem; height:1.35rem; display:grid; place-items:center; color:#fff; border-radius:50%; background:#000; font-size:.68rem; font-weight:800; }
 .funding-network { --moh:#f15a38; --mltc:#3157d5; --ink:#050505; width:100%; min-width:0; height:auto; display:block; overflow:visible; }
-.orbit { fill:none; stroke:#111; stroke-width:1; stroke-dasharray:2 9; opacity:.52; }
-.orbit--program { opacity:.28; }
-.orbit-label { fill:#555; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 .text-halo,.category-node text,.program-node text,.recipient-node text { paint-order:stroke; stroke:#fff; stroke-width:5px; stroke-linejoin:round; }
 .network-edge { fill:none; stroke-linecap:round; transition:opacity .32s ease,stroke-width .32s ease; }
 .network-edge--moh { stroke:var(--moh); }
@@ -271,7 +268,7 @@ a { color:inherit; }
   .overview-statement__named { font-size:clamp(1.25rem,5.5vw,2rem)!important; }
   .overview-statement .overview-statement__unitemized { margin-top:1.2rem; font-size:.82rem; }
   .overview-chart__row a,.overview-chart__axis { grid-template-columns:minmax(105px,.75fr) minmax(125px,1.25fr) 3.8rem; gap:.45rem; }
-  .overview-chart__name { font-size:.68rem; }
+  .overview-chart__name { overflow:visible; font-size:.68rem; line-height:1.08; text-overflow:clip; white-space:normal; }
   .overview-notes { grid-template-columns:1fr; }
   .overview-notes .network-source { text-align:left; }
   .network-intro { grid-template-columns:1fr; }

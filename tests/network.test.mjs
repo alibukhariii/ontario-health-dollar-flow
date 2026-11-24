@@ -103,6 +103,8 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   assert.match(html, /Funding purposes/);
   assert.match(html, /Programs/);
   assert.match(html, /Named recipients/);
+  assert.doesNotMatch(html, /class="orbit(?: |")/);
+  assert.doesNotMatch(html, /class="orbit-label/);
   assert.doesNotMatch(html, /Recipient scale/);
 
   const tail = network.layoutFundingNetwork(fixture, { recipientOffset: 2 });

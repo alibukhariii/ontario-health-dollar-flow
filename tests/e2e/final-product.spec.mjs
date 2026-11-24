@@ -31,6 +31,9 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.coverage-split__itemized')).toHaveCount(0);
   await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
   await expect(page.locator('.size-key')).toHaveCount(0);
+  await expect(page.locator('.network-scale')).toBeVisible();
+  await expect(page.locator('.funding-network .orbit')).toHaveCount(0);
+  await expect(page.locator('.funding-network .orbit-label')).toHaveCount(0);
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
 });
 
@@ -95,6 +98,7 @@ test('mobile uses an expandable list instead of a horizontally scrolling radial 
   await openNetwork(page);
   await expect(page.locator('.mobile-network')).toBeVisible();
   await expect(page.locator('.funding-network')).toBeHidden();
+  await expect(page.locator('.overview-chart__name').first()).toHaveCSS('white-space', 'normal');
   await page.locator('.mobile-category').first().locator('summary').click();
   await expect(page.locator('.mobile-program').first()).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
