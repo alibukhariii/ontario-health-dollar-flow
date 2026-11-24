@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import html
 import json
 import shutil
@@ -19,14 +18,6 @@ STATIC_FILES = (
     "app-model.mjs",
     "renderers.mjs",
     "network.mjs",
-)
-
-REVIEW_V2_FILES = (
-    "index.html",
-    "styles.css",
-    "app.mjs",
-    "visual.mjs",
-    "social-preview.png",
 )
 
 
@@ -96,74 +87,6 @@ def _static_overview(network: dict[str, object]) -> str:
     </article>"""
 
 
-def _static_review_v2(network: dict[str, object]) -> str:
-    programs_by_category: dict[str, list[dict[str, object]]] = {}
-    for program in network["programs"]:
-        programs_by_category.setdefault(str(program["category_id"]), []).append(program)
-    sections = []
-    for category in network["categories"]:
-        programs = sorted(
-            programs_by_category.get(str(category["category_id"]), []),
-            key=lambda row: -Decimal(str(row["amount_cad"])),
-        )
-        program_rows = "".join(
-            "<tr>"
-            f"<td>{html.escape(str(program['label']))}</td>"
-            f"<td>{html.escape(str(program['ministry'])).replace(' Of ', ' of ')}</td>"
-            f"<td>{_format_cad(str(program['amount_cad']))}</td>"
-            "</tr>"
-            for program in programs
-        )
-        sections.append(
-            f"<details class=\"static-purpose\"><summary><span>{html.escape(str(category['label']))}</span>"
-            f"<strong>{_format_cad(str(category['amount_cad']))}</strong></summary>"
-            "<table><thead><tr><th>What program</th><th>Source ministry</th><th>Amount</th></tr></thead>"
-            f"<tbody>{program_rows}</tbody></table></details>"
-        )
-    top_recipients = "".join(
-        f'<li><a href="../recipient/{html.escape(str(row["recipient_id"]))}/"><span>{html.escape(str(row["label"]))}</span>'
-        f'<strong>{_format_cad(str(row["amount_cad"]))}</strong></a></li>'
-        for row in network["recipients"][:25]
-    )
-    return (
-        "<h2>Open the method and download the crosswalk</h2>"
-        "<p>This structured layer keeps the complete Why (purpose) → What (program) → Who (recipient) story readable without JavaScript. "
-        "The interactive layer adds recipient selection and comparison; the tables preserve every official program label.</p>"
-        + "".join(sections)
-        + f'<h3>Largest named recipients</h3><ol>{top_recipients}</ol>'
-        + f'<p><a href="../recipients/">Browse all {int(network["named_recipient_count"]):,} named recipients</a></p>'
-    )
-
-
-def _write_taxonomy_csv(output_root: Path, release: dict[str, object]) -> None:
-    release_root = output_root / "data" / "releases" / str(release["release_id"])
-    payload = _read_json(release_root / "taxonomy-crosswalk.json")
-    rows = list(payload.get("mappings", []))
-    target = output_root / "downloads" / "taxonomy-crosswalk.csv"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = [
-        "ministry", "payment_category", "payment_detail", "category_id", "category_label",
-        "mapping_rationale", "effective_period", "mapping_status", "positive_payment_line_count",
-        "positive_amount_cad",
-    ]
-    with target.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fieldnames, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def generate_review_v2(output_root: Path, release: dict[str, object]) -> None:
-    release_root = output_root / "data" / "releases" / str(release["release_id"])
-    network = _read_json(release_root / "network-overview.json")
-    target = output_root / "review-v2" / "index.html"
-    document = target.read_text(encoding="utf-8")
-    marker = "<!-- STATIC_REVIEW_V2 -->"
-    if marker not in document:
-        raise ValueError("The review-v2 static marker is missing")
-    target.write_text(document.replace(marker, _static_review_v2(network), 1), encoding="utf-8")
-    _write_taxonomy_csv(output_root, release)
-
-
 def _replace_canvas(document: str, content: str) -> str:
     marker = '<div class="network-canvas" id="network-canvas"><p class="loading">Loading the published payment network…</p></div>'
     replacement = f'<div class="network-canvas" id="network-canvas">{content}</div>'
@@ -226,14 +149,8 @@ def build_site(site_root: Path, workspace_root: Path, output_root: Path):
     source_root = site_root / "src"
     for filename in STATIC_FILES:
         shutil.copy2(source_root / filename, output_root / filename)
-    review_source = source_root / "critique-v2"
-    review_target = output_root / "review-v2"
-    review_target.mkdir(parents=True)
-    for filename in REVIEW_V2_FILES:
-        shutil.copy2(review_source / filename, review_target / filename)
     release = build_data.build_release(workspace_root, output_root)
     generate_static_pages(output_root, release)
-    generate_review_v2(output_root, release)
     return release
 
 
