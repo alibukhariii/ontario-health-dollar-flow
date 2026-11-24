@@ -23,11 +23,16 @@
       </section>
 
       <section class="overview-page" id="page-overview" aria-labelledby="overview-title">
-        <div class="overview-statement">
-          <h2 class="visually-hidden" id="overview-title">Ontario health-ministry published payments</h2>
-          <p class="overview-statement__lead">Together, the <strong>MOH and MLTC</strong> spent <strong>$97.4B<sup>*</sup></strong> in 2025–26.</p>
-          <p><strong>$65.2B</strong> went to <strong id="recipient-count">2,081 named recipients</strong>.</p>
-          <p><strong>$32.3B (33.1%)</strong> was not itemized.</p>
+        <div class="overview-content">
+          <div class="overview-statement">
+            <h2 class="visually-hidden" id="overview-title">Ontario health-ministry published payments</h2>
+            <p class="overview-statement__lead">Together, the <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> spent <strong class="overview-statement__total">$97.4B<sup>*</sup></strong> in 2025–26.</p>
+            <p class="overview-statement__named"><strong>$65.2B</strong> went to <strong id="recipient-count">2,081 named recipients</strong>.</p>
+            <p class="overview-statement__unitemized"><strong>$32.3B (33.1%)</strong> was not itemized.</p>
+          </div>
+          <section class="overview-recipient-chart" id="overview-recipient-chart" aria-label="Largest named recipients">
+            <p class="loading">Loading the largest named recipients…</p>
+          </section>
         </div>
         <footer class="overview-notes">
           <p class="network-net-note"><sup>*</sup><strong>$97.0B net</strong> after a −$421.0M Ontario Government Pharmacy adjustment. The adjustment is excluded from the forward flow because it is a signed reconciliation rather than a positive recipient payment.</p>

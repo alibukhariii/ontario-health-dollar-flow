@@ -12,9 +12,12 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__copy')).toContainText("Follow the money through Ontario's health system from the ministry to the recipient");
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
-  await expect(page.locator('#page-overview')).toContainText('Together, the MOH and MLTC spent $97.4B* in 2025–26.');
+  await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
   await expect(page.locator('#page-overview')).toContainText('$65.2B went to 2,081 named recipients.');
   await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized.');
+  await expect(page.locator('.overview-chart__title')).toContainText('A quarter (25.3%) went to these 10 named recipients.');
+  await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
+  await expect(page.locator('.overview-chart__axis-title')).toHaveText('Amount (billions)');
   await expect(page.locator('#page-overview')).toContainText('$97.0B net after a −$421.0M');
   await expect(page.locator('#page-overview .network-source')).toBeVisible();
   await expect(page.locator('#page-network .network-source')).toHaveCount(0);
@@ -29,6 +32,18 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
   await expect(page.locator('.size-key')).toHaveCount(0);
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
+});
+
+test('overview concentration bars open the selected recipient on the network page', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#page-overview').scrollIntoViewIfNeeded();
+  const firstRecipient = page.locator('[data-overview-recipient]').first();
+  await expect(firstRecipient).toContainText('Ontario Health');
+  await firstRecipient.click();
+  await expect(page.locator('#page-network')).toBeInViewport();
+  await expect(page.locator('.network-tooltip')).toBeVisible();
+  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health');
+  await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
 });
 
 test('category and recipient aggregates open legible zoom levels', async ({ page }, testInfo) => {

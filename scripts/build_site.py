@@ -87,6 +87,51 @@ def _static_overview(network: dict[str, object]) -> str:
     </article>"""
 
 
+def _overview_recipient_chart(network: dict[str, object]) -> str:
+    recipients = list(network["recipients"])[:10]
+    total = Decimal(str(network["positive_published_payments_cad"]))
+    top_ten_total = sum((Decimal(str(row["amount_cad"])) for row in recipients), Decimal("0"))
+    share = (top_ten_total / total * Decimal("100")).quantize(Decimal("0.1"))
+    maximum = max((Decimal(str(row["amount_cad"])) for row in recipients), default=Decimal("1"))
+    palette = (
+        "#f4b7a5", "#a9d8cf", "#b8c8f0", "#f2d18d", "#cbb9df",
+        "#b9d8aa", "#efb9cf", "#b9d8ec", "#d9c6a5", "#c4d8c9",
+    )
+    bars = []
+    for index, recipient in enumerate(recipients):
+        amount = Decimal(str(recipient["amount_cad"]))
+        width = amount / maximum * Decimal("100")
+        recipient_id = html.escape(str(recipient["recipient_id"]))
+        label = html.escape(str(recipient["label"]))
+        bars.append(
+            '<li class="overview-chart__row">'
+            f'<a href="recipient/{recipient_id}/" data-overview-recipient="{recipient_id}" '
+            f'style="--bar-share:{width:.4f}%;--bar-colour:{palette[index]};--bar-delay:{index * 55}ms">'
+            f'<span class="overview-chart__name">{label}</span>'
+            '<span class="overview-chart__track" aria-hidden="true">'
+            '<i class="overview-chart__bar"></i></span>'
+            f'<strong>{_format_cad(str(recipient["amount_cad"]))}</strong>'
+            '</a></li>'
+        )
+    return f"""<section class="overview-recipient-chart" id="overview-recipient-chart" aria-labelledby="overview-chart-title">
+      <h2 class="overview-chart__title" id="overview-chart-title"><strong>A quarter ({share}%)</strong> went to these {len(recipients)} named recipients.</h2>
+      <ol class="overview-chart__plot">{''.join(bars)}</ol>
+      <div class="overview-chart__axis" aria-hidden="true">
+        <span></span><div class="overview-chart__ticks"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div><span></span>
+        <strong class="overview-chart__axis-title">Amount (billions)</strong>
+      </div>
+    </section>"""
+
+
+def _replace_overview_chart(document: str, network: dict[str, object]) -> str:
+    marker = """<section class="overview-recipient-chart" id="overview-recipient-chart" aria-label="Largest named recipients">
+            <p class="loading">Loading the largest named recipients…</p>
+          </section>"""
+    if marker not in document:
+        raise ValueError("The overview recipient-chart marker is missing from index.html")
+    return document.replace(marker, _overview_recipient_chart(network), 1)
+
+
 def _replace_canvas(document: str, content: str) -> str:
     marker = '<div class="network-canvas" id="network-canvas"><p class="loading">Loading the published payment network…</p></div>'
     replacement = f'<div class="network-canvas" id="network-canvas">{content}</div>'
@@ -99,6 +144,7 @@ def generate_static_pages(output_root: Path, release: dict[str, object]) -> None
     release_root = output_root / "data" / "releases" / str(release["release_id"])
     network = _read_json(release_root / "network-overview.json")
     source_template = (output_root / "index.html").read_text(encoding="utf-8")
+    source_template = _replace_overview_chart(source_template, network)
     root_document = _replace_canvas(source_template, _static_overview(network))
     (output_root / "index.html").write_text(root_document, encoding="utf-8")
 

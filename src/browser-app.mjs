@@ -18,6 +18,8 @@ const elements = {
   typeFilter: document.querySelector('#recipient-type-filter'),
   results: document.querySelector('#search-results'),
   count: document.querySelector('#recipient-count'),
+  overviewChart: document.querySelector('#overview-recipient-chart'),
+  networkPage: document.querySelector('#page-network'),
   profilePanel: document.querySelector('#profile-panel'),
   profile: document.querySelector('#profile-content'),
   status: document.querySelector('#network-status'),
@@ -351,6 +353,24 @@ async function loadNetwork() {
   });
   return loadingPromise;
 }
+
+async function openOverviewRecipient(recipientId) {
+  await loadNetwork();
+  if (!contract?.recipients.some((row) => row.recipient_id === recipientId)) return;
+  showRecipientInZoom(recipientId);
+  elements.networkPage.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start',
+  });
+  await focusRecipient(recipientId, { pin: true, history: true });
+}
+
+elements.overviewChart?.addEventListener('click', (event) => {
+  const link = event.target.closest('[data-overview-recipient]');
+  if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  openOverviewRecipient(link.dataset.overviewRecipient);
+});
 
 document.querySelector('[data-close-profile]').addEventListener('click', () => {
   elements.profilePanel.hidden = true;
