@@ -148,6 +148,7 @@ class BuildSiteTests(unittest.TestCase):
             self.assertIn("<strong>A quarter (25.3%)</strong> went to these 10 named recipients.", html)
             self.assertEqual(html.count("data-overview-recipient="), 10)
             self.assertIn("Amount (billions)", html)
+            self.assertIn('<div class="overview-chart__axis">', html)
             self.assertIn('class="overview-statement__unitemized"', html)
             self.assertIn("<strong>$32.3B (33.1%)</strong> was not itemized", html)
             self.assertNotIn("Ontario · 2025–26", html)

@@ -116,8 +116,8 @@ def _overview_recipient_chart(network: dict[str, object]) -> str:
     return f"""<section class="overview-recipient-chart" id="overview-recipient-chart" aria-labelledby="overview-chart-title">
       <h2 class="overview-chart__title" id="overview-chart-title"><strong>A quarter ({share}%)</strong> went to these {len(recipients)} named recipients.</h2>
       <ol class="overview-chart__plot">{''.join(bars)}</ol>
-      <div class="overview-chart__axis" aria-hidden="true">
-        <span></span><div class="overview-chart__ticks"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div><span></span>
+      <div class="overview-chart__axis">
+        <span></span><div class="overview-chart__ticks" aria-hidden="true"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div><span></span>
         <strong class="overview-chart__axis-title">Amount (billions)</strong>
       </div>
     </section>"""
