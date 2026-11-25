@@ -34,11 +34,11 @@ a { color:inherit; }
 .overview-page { min-height:100svh; display:grid; grid-template-rows:1fr auto; padding:clamp(2rem,4vw,5rem); overflow:hidden; scroll-snap-align:start; scroll-snap-stop:always; background:#fff; }
 .overview-content { width:100%; display:grid; grid-template-columns:minmax(0,.82fr) minmax(560px,1.18fr); gap:clamp(2.5rem,5vw,7rem); align-items:center; }
 .overview-statement { align-self:center; max-width:760px; }
-.overview-statement p { max-width:720px; margin:.25em 0; font-size:clamp(1.35rem,2.2vw,2.75rem); font-weight:400; letter-spacing:-.045em; line-height:1.02; text-wrap:balance; opacity:1; transform:none; }
+.overview-statement p { max-width:30ch; margin:.25em 0; font-size:clamp(1.35rem,2.2vw,2.75rem); font-weight:400; letter-spacing:-.045em; line-height:1.02; text-wrap:balance; opacity:1; transform:none; }
 .overview-statement__lead { margin-bottom:1.25em!important; }
-.overview-statement strong { font-size:1.08em; font-weight:900; }
-.overview-statement .overview-statement__total { font-size:1.42em; white-space:nowrap; }
-.overview-statement__named { font-size:clamp(1.25rem,2vw,2.5rem)!important; }
+.overview-statement strong { font-size:1em; font-weight:900; }
+.overview-statement .overview-statement__total { font-size:1em; white-space:nowrap; }
+.overview-statement__named { font-size:clamp(1.35rem,2.2vw,2.75rem)!important; }
 .overview-statement .overview-statement__unitemized { max-width:480px; margin-top:2.2rem; color:var(--quiet); font-size:clamp(.82rem,1vw,1.02rem); letter-spacing:-.01em; line-height:1.35; }
 .overview-statement__unitemized strong { color:var(--ink); font-size:1em; }
 .overview-statement sup { font-size:.35em; vertical-align:top; }
@@ -265,7 +265,7 @@ a { color:inherit; }
   .overview-page { overflow:visible; }
   .overview-content { grid-template-columns:1fr; gap:2.2rem; align-content:center; }
   .overview-statement p,.overview-chart__title { font-size:clamp(1.35rem,6vw,2.2rem); }
-  .overview-statement__named { font-size:clamp(1.25rem,5.5vw,2rem)!important; }
+  .overview-statement__named { font-size:clamp(1.35rem,6vw,2.2rem)!important; }
   .overview-statement .overview-statement__unitemized { margin-top:1.2rem; font-size:.82rem; }
   .overview-chart__row a,.overview-chart__axis { grid-template-columns:minmax(105px,.75fr) minmax(125px,1.25fr) 3.8rem; gap:.45rem; }
   .overview-chart__name { overflow:visible; font-size:.68rem; line-height:1.08; text-overflow:clip; white-space:normal; }

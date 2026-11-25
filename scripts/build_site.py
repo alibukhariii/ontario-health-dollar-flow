@@ -5,7 +5,7 @@ import argparse
 import html
 import json
 import shutil
-from decimal import Decimal
+from decimal import Decimal, ROUND_CEILING
 from pathlib import Path
 
 import build_data
@@ -88,11 +88,33 @@ def _static_overview(network: dict[str, object]) -> str:
 
 
 def _overview_recipient_chart(network: dict[str, object]) -> str:
-    recipients = list(network["recipients"])[:10]
-    total = Decimal(str(network["positive_published_payments_cad"]))
-    top_ten_total = sum((Decimal(str(row["amount_cad"])) for row in recipients), Decimal("0"))
-    share = (top_ten_total / total * Decimal("100")).quantize(Decimal("0.1"))
-    maximum = max((Decimal(str(row["amount_cad"])) for row in recipients), default=Decimal("1"))
+    recipients = [
+        row for row in network["recipients"]
+        if str(row["label"]).strip().casefold() != "ontario health"
+    ][:10]
+    maximum_billions = max(
+        (Decimal(str(row["amount_cad"])) / Decimal("1000000000") for row in recipients),
+        default=Decimal("1"),
+    )
+    tick_steps = (
+        Decimal("0.1"), Decimal("0.2"), Decimal("0.25"), Decimal("0.5"),
+        Decimal("1"), Decimal("2"), Decimal("5"),
+    )
+    tick_step = next(
+        step for step in tick_steps
+        if (maximum_billions / step).to_integral_value(rounding=ROUND_CEILING) <= 5
+    )
+    axis_max_billions = (
+        (maximum_billions / tick_step).to_integral_value(rounding=ROUND_CEILING)
+        * tick_step
+    )
+    tick_count = int(axis_max_billions / tick_step)
+    ticks = [tick_step * index for index in range(tick_count + 1)]
+    tick_labels = "".join(
+        f"<span>{tick.quantize(Decimal('1')) if tick == tick.to_integral_value() else tick.normalize()}</span>"
+        for tick in ticks
+    )
+    maximum = axis_max_billions * Decimal("1000000000")
     palette = (
         "#f4b7a5", "#a9d8cf", "#b8c8f0", "#f2d18d", "#cbb9df",
         "#b9d8aa", "#efb9cf", "#b9d8ec", "#d9c6a5", "#c4d8c9",
@@ -114,10 +136,10 @@ def _overview_recipient_chart(network: dict[str, object]) -> str:
             '</a></li>'
         )
     return f"""<section class="overview-recipient-chart" id="overview-recipient-chart" aria-labelledby="overview-chart-title">
-      <h2 class="overview-chart__title" id="overview-chart-title"><strong>A quarter ({share}%)</strong> went to these {len(recipients)} named recipients.</h2>
+      <h2 class="overview-chart__title" id="overview-chart-title">The top {len(recipients)} recipients were</h2>
       <ol class="overview-chart__plot">{''.join(bars)}</ol>
       <div class="overview-chart__axis">
-        <span></span><div class="overview-chart__ticks" aria-hidden="true"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span></div><span></span>
+        <span></span><div class="overview-chart__ticks" aria-hidden="true">{tick_labels}</div><span></span>
         <strong class="overview-chart__axis-title">Amount (billions)</strong>
       </div>
     </section>"""

@@ -145,8 +145,11 @@ class BuildSiteTests(unittest.TestCase):
             self.assertIn(">Ali Bukhari</a>", html)
             self.assertIn("Together, the <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> spent", html)
             self.assertIn('id="overview-recipient-chart"', html)
-            self.assertIn("<strong>A quarter (25.3%)</strong> went to these 10 named recipients.", html)
+            self.assertIn("The top 10 recipients were", html)
             self.assertEqual(html.count("data-overview-recipient="), 10)
+            overview_chart = html.split('id="overview-recipient-chart"', 1)[1].split('</section>', 1)[0]
+            self.assertNotIn("Ontario Health", overview_chart)
+            self.assertIn("University Health Network", overview_chart)
             self.assertIn("Amount (billions)", html)
             self.assertIn('<div class="overview-chart__axis">', html)
             self.assertIn('class="overview-statement__unitemized"', html)

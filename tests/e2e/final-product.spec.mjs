@@ -15,7 +15,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
   await expect(page.locator('#page-overview')).toContainText('$65.2B went to 2,081 named recipients.');
   await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized.');
-  await expect(page.locator('.overview-chart__title')).toContainText('A quarter (25.3%) went to these 10 named recipients.');
+  await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
   await expect(page.locator('.overview-chart__axis-title')).toHaveText('Amount (billions)');
   await expect(page.locator('#page-overview')).toContainText('$97.0B net after a −$421.0M');
@@ -41,11 +41,12 @@ test('overview concentration bars open the selected recipient on the network pag
   await page.goto('/');
   await page.locator('#page-overview').scrollIntoViewIfNeeded();
   const firstRecipient = page.locator('[data-overview-recipient]').first();
-  await expect(firstRecipient).toContainText('Ontario Health');
+  await expect(firstRecipient).toContainText('University Health Network');
+  await expect(page.locator('#overview-recipient-chart')).not.toContainText('Ontario Health');
   await firstRecipient.click();
   await expect(page.locator('#page-network')).toBeInViewport();
   await expect(page.locator('.network-tooltip')).toBeVisible();
-  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health');
+  await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
   await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
 });
 
