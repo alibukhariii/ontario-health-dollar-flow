@@ -1,10 +1,11 @@
-const SVG_WIDTH = 1440;
-const SVG_HEIGHT = 1500;
+const SVG_WIDTH = 1760;
+const SVG_HEIGHT = 1760;
 const CENTRE_X = SVG_WIDTH / 2;
-const CENTRE_Y = 780;
-const CATEGORY_RING = 625;
-const PROGRAM_RING = 438;
-const RECIPIENT_BOUNDARY = 350;
+const CENTRE_Y = SVG_HEIGHT / 2;
+const CATEGORY_RING = 760;
+const PROGRAM_RING = 545;
+const RECIPIENT_BOUNDARY = 430;
+const MAX_VISIBLE_RECIPIENTS = 24;
 const MOH = 'Ministry Of Health';
 const MLTC = 'Ministry Of Long-Term Care';
 const SMALLER_ID = '__smaller_recipients__';
@@ -56,10 +57,10 @@ function packRecipients(recipients, cx, cy, boundary, total) {
   const golden = Math.PI * (3 - Math.sqrt(5));
   function gridCells(candidate) {
     const cells = [];
-    const left = Math.floor((candidate.x - candidate.r - 5) / cellSize);
-    const right = Math.floor((candidate.x + candidate.r + 5) / cellSize);
-    const top = Math.floor((candidate.y - candidate.r - 5) / cellSize);
-    const bottom = Math.floor((candidate.y + candidate.r + 5) / cellSize);
+    const left = Math.floor((candidate.x - candidate.r - 12) / cellSize);
+    const right = Math.floor((candidate.x + candidate.r + 12) / cellSize);
+    const top = Math.floor((candidate.y - candidate.r - 12) / cellSize);
+    const bottom = Math.floor((candidate.y + candidate.r + 12) / cellSize);
     for (let x = left; x <= right; x += 1) for (let y = top; y <= bottom; y += 1) cells.push(`${x}:${y}`);
     return cells;
   }
@@ -73,7 +74,7 @@ function packRecipients(recipients, cx, cy, boundary, total) {
   function collides(candidate) {
     const nearby = new Set();
     for (const key of gridCells(candidate)) for (const row of grid.get(key) ?? []) nearby.add(row);
-    return [...nearby].some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < candidate.r + other.r + 5);
+    return [...nearby].some((other) => Math.hypot(candidate.x - other.x, candidate.y - other.y) < candidate.r + other.r + 12);
   }
   for (const recipient of sized) {
     let found = null;
@@ -139,9 +140,12 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
     const group = (byCategory.get(category.category_id) ?? []).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad));
     const sector = Math.PI * 2 / categories.length;
     group.forEach((row, index) => {
-      const offset = (index - (group.length - 1) / 2) * Math.min(0.075, sector / Math.max(group.length, 1));
+      const offset = group.length > 1
+        ? (index - (group.length - 1) / 2) * (sector * 0.92 / (group.length - 1))
+        : 0;
       const angle = category.angle + offset;
-      allPrograms.push({ ...row, ...polar(CENTRE_X, CENTRE_Y, PROGRAM_RING + (index % 2) * 32, angle),
+      const radialOffset = ((index % 3) - 1) * 38;
+      allPrograms.push({ ...row, ...polar(CENTRE_X, CENTRE_Y, PROGRAM_RING + radialOffset, angle),
         angle, r: 9, labelByDefault: index === 0 });
     });
   }
@@ -152,8 +156,7 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
     programs = allPrograms.map((row) => {
       if (!focusedIndexes.has(row.program_key)) return { ...row, isContext: true, labelByDefault: false };
       const index = focusedIndexes.get(row.program_key);
-      const angle = -Math.PI / 2 + index * (Math.PI * 2 / Math.max(focusedRows.length, 1));
-      return { ...row, ...polar(CENTRE_X, CENTRE_Y, PROGRAM_RING, angle), angle,
+      return { ...row,
         r: row.program_key === focusedProgramKey ? 20 : 14, labelByDefault: false,
         categoryFocused: true, programIndex: index + 1, isContext: false,
         isSelected: row.program_key === focusedProgramKey };
@@ -173,7 +176,7 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
       return recipient ? { ...recipient, global_amount_cad: recipient.amount_cad, amount_cad: amount, program_amount_cad: amount } : null;
     }).filter(Boolean).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad) || Number(a.global_rank) - Number(b.global_rank))
     : contract.recipients;
-  const pageSize = contract.displayed_recipient_count ?? 50;
+  const pageSize = Math.min(contract.displayed_recipient_count ?? MAX_VISIBLE_RECIPIENTS, MAX_VISIBLE_RECIPIENTS);
   const offset = Math.max(0, Math.min(Number(recipientOffset) || 0, Math.max(0, recipientUniverse.length - 1)));
   const recipientGroup = recipientUniverse.slice(offset);
   const displayed = recipientGroup.slice(0, pageSize);
@@ -334,7 +337,7 @@ export function renderFundingNetwork(layout, contract) {
   const coverageNote = `<p class="recipient-coverage-note"><strong>${formatCad(contract.not_itemized_to_public_recipient_cad)}</strong> (${escapeHtml(contract.not_itemized_share_percent)}%) stops before the named-recipient layer because it was not itemized.</p>`;
   const scaleGuide = `<div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
   const recipientRows = layout.recipients.map((recipient) => recipientNode({ ...recipient, isContext: layout.focusScale !== 'recipients', isScaleActive: layout.focusScale === 'recipients' })).join('');
-  return `${coverageNote}${scaleGuide}${focusedStatus}${programFocusList}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-220 -120 ${layout.width + 440} ${layout.height + 240}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen funding purposes connect to published programs and a zoomable view of named recipients. The selected scale is emphasized while the other system layers remain visible as context.</desc><defs>${gradients}<marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--ink)"/></marker></defs><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g></svg><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health · ${formatCad(ministryTotals.get(MOH))}</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care · ${formatCad(ministryTotals.get(MLTC))}</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Intermediary route</span><span><i class="legend-outline legend-outline--provider"></i>Provider</span><span><i class="legend-outline legend-outline--government"></i>Government or municipality</span><span><i class="legend-outline legend-outline--vendor"></i>Vendor</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary recipient</span></div>${renderMobileNetwork(contract)}`;
+  return `${coverageNote}${scaleGuide}${focusedStatus}${programFocusList}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-140 -160 ${layout.width + 280} ${layout.height + 320}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen funding purposes connect to published programs and a zoomable view of named recipients. The selected scale is emphasized while the other system layers remain visible as context.</desc><defs>${gradients}<marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--ink)"/></marker></defs><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g></svg><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health · ${formatCad(ministryTotals.get(MOH))}</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care · ${formatCad(ministryTotals.get(MLTC))}</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Intermediary route</span><span><i class="legend-outline legend-outline--provider"></i>Provider</span><span><i class="legend-outline legend-outline--government"></i>Government or municipality</span><span><i class="legend-outline legend-outline--vendor"></i>Vendor</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary recipient</span></div>${renderMobileNetwork(contract)}`;
 }
 
 export function renderRecipientFocus(layout, payload) {

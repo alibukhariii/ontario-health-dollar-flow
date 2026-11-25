@@ -136,6 +136,49 @@ test('category focus spreads every program in the selected category and exposes 
   assert.match(html, /category-node__hit/);
 });
 
+test('category focus preserves every program coordinate', () => {
+  const secondProgram = {
+    program_key: 'Ministry Of Health␟hospital_care␟Targeted care',
+    label: 'Targeted care', category_id: 'hospital_care', ministry: 'Ministry Of Health',
+    amount_cad: '20.00', not_itemized_amount_cad: '0.00',
+  };
+  const contract = { ...fixture, programs: [...fixture.programs, secondProgram] };
+  const base = network.layoutFundingNetwork(contract);
+  const focused = network.layoutFundingNetwork(contract, { focusedCategoryId: 'hospital_care' });
+  for (const program of base.programs) {
+    const next = focused.programByKey.get(program.program_key);
+    assert.equal(next.x, program.x, `${program.label} x coordinate changed`);
+    assert.equal(next.y, program.y, `${program.label} y coordinate changed`);
+    assert.equal(next.angle, program.angle, `${program.label} angle changed`);
+  }
+});
+
+test('large recipient universes use a spacious fixed-size visual window', () => {
+  const recipients = Array.from({ length: 60 }, (_, index) => ({
+    recipient_id: `recipient-${index + 1}`,
+    label: `Recipient ${index + 1}`,
+    payee_type: 'provider',
+    amount_cad: String(60 - index),
+    global_rank: index + 1,
+    path: `payees/recipient-${index + 1}.json`,
+  }));
+  const expanded = {
+    ...fixture,
+    recipients,
+    displayed_recipient_count: 50,
+    named_routes: recipients.map((row) => ({
+      recipient_id: row.recipient_id,
+      program_key: fixture.programs[0].program_key,
+      amount_cad: row.amount_cad,
+    })),
+  };
+  const layout = network.layoutFundingNetwork(expanded);
+  assert.equal(layout.recipientPageSize, 24);
+  assert.equal(layout.recipients.length, 25);
+  assert.ok(layout.width >= 1700);
+  assert.ok(layout.recipientBoundary >= 420);
+});
+
 test('program focus keeps every system layer visible while repacking that program’s recipients', () => {
   const programKey = fixture.programs[0].program_key;
   const focused = network.layoutFundingNetwork(fixture, {

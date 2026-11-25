@@ -23,7 +23,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('#page-network .network-source')).toHaveCount(0);
   await expect(page.locator('[data-category-id]')).toHaveCount(14);
   await expect(page.locator('[data-program-key]')).toHaveCount(74);
-  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
+  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(24);
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('$32.3B');
@@ -52,7 +52,14 @@ test('overview concentration bars open the selected recipient on the network pag
 test('category and recipient aggregates open legible zoom levels', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'mobile');
   await openNetwork(page);
+  const programCoordinates = await page.locator('[data-program-key] circle').evaluateAll((nodes) => (
+    nodes.map((node) => [node.closest('[data-program-key]').dataset.programKey, node.getAttribute('cx'), node.getAttribute('cy')])
+  ));
   await page.locator('[data-category-id="hospital_care"]').click();
+  const focusedProgramCoordinates = await page.locator('[data-program-key] circle').evaluateAll((nodes) => (
+    nodes.map((node) => [node.closest('[data-program-key]').dataset.programKey, node.getAttribute('cx'), node.getAttribute('cy')])
+  ));
+  expect(focusedProgramCoordinates).toEqual(programCoordinates);
   await expect(page.locator('.program-focus-status')).toContainText('Hospital care');
   await expect(page.locator('.program-node__index')).toHaveCount(4);
   await expect(page.locator('.program-node.is-context')).toHaveCount(70);
@@ -69,9 +76,9 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
   await expect(page.locator('.program-focus-list')).toContainText('Other Payments');
   await page.locator('[data-program-focus-back]').click();
 
-  await page.locator('[data-recipient-zoom-offset="50"]').click();
-  await expect(page.locator('.recipient-zoom-status')).toContainText('Ranks 51–100');
-  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(50);
+  await page.locator('[data-recipient-zoom-offset="24"]').click();
+  await expect(page.locator('.recipient-zoom-status')).toContainText('Ranks 25–48');
+  await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(24);
   await expect(page.locator('[data-recipient-zoom-back="0"]')).toBeVisible();
 });
 
