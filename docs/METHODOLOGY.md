@@ -33,12 +33,14 @@ Aliases are combined only when a reviewed authoritative link proves that the lab
 The current release contains:
 
 - **$65.183 billion** itemized to named public payees.
+- **$53.114 billion** assigned to 2,078 named non-intermediary organizations in the recipient layer.
+- **$12.070 billion** published under named intermediaries and retained as program-level evidence stops.
 - **$32.251 billion**, or **33.10%**, not itemized to a public recipient.
-- One combined global ranking of named providers, intermediaries, municipalities and vendors.
+- One recipient ranking of named non-intermediary organizations. The reproducible data exports retain the broader all-payee ranking separately.
 
 ## Rankings and concentration
 
-The global ranking sums compatible positive payment lines for each named payee after approved alias resolution. Program rankings use only the selected program’s amount. The interface shows a program result’s global total and global rank beside it.
+The recipient ranking sums compatible positive payment lines for each named non-intermediary organization after approved alias resolution. Program rankings use only the selected program’s amount. The interface shows a program result’s recipient total and rank beside it.
 
 Concentration is measured within named-payee dollars:
 
@@ -49,7 +51,9 @@ These are descriptive concentration measures. They do not measure efficiency, qu
 
 ## Intermediaries and financial profiles
 
-Ontario Health and Ontario Health atHome appear as payees when the Detailed Schedule assigns an amount to them. Independently published intermediary expenses appear in a separate frame. Receipt and outflow amounts are never added together.
+Ontario Health, Ontario Health atHome and other named intermediaries remain in the underlying payee data, but they do not appear as recipient bubbles or in the recipient ranking. Their Public Accounts amounts remain part of the $97.434 billion denominator and appear as program-level evidence stops. A dotted treatment on a recipient route indicates a documented intermediary role only; it carries no additional amount.
+
+Ontario Health separately reported **$48.203 billion** in 2025–26 expenses: **$47.311 billion** passed onward and **$892.331 million** used for Ontario Health-run operations. These figures reconcile within Ontario Health’s audited statements, but they are not added to the Public Accounts payment flow because a complete public crosswalk to downstream recipients is unavailable.
 
 Recipient statements provide organization-wide revenue and expense context. Incoming payments are not connected to particular expenses, and statement totals are not added to the payment denominator.
 

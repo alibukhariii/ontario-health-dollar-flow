@@ -1637,7 +1637,11 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         matched = intermediary_by_label.get(str(row["published_label"]).strip().casefold())
         if matched:
             row["intermediary_path"] = f"intermediaries/{matched[0]}.json"
+            row["destination_type"] = "intermediary"
+            row["payee_type"] = "intermediary"
             payee_payloads[row["payment_label_id"]]["intermediary_path"] = row["intermediary_path"]
+            payee_payloads[row["payment_label_id"]]["destination_type"] = "intermediary"
+            payee_payloads[row["payment_label_id"]]["payee_type"] = "intermediary"
     organization_payloads, label_to_organization = flow_v2_data.build_organization_payloads(
         payee_index,
         payee_payloads,
@@ -1653,12 +1657,16 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         payloads = organization_payloads if row["payment_label_id"] in organization_payloads else payee_payloads
         payloads[row["payment_label_id"]]["global_rank"] = row["global_rank"]
         payloads[row["payment_label_id"]]["share_of_all_positive_percent"] = row["share_of_all_positive_percent"]
+    for row in convergence["organizations"]:
+        payloads = organization_payloads if row["payment_label_id"] in organization_payloads else payee_payloads
+        payloads[row["payment_label_id"]]["global_rank"] = row["recipient_rank"]
     network_overview = flow_v2_data.build_network_overview(
         flow_overview,
         category_payloads,
         convergence,
         payee_payloads,
         organization_payloads,
+        intermediary_payloads,
     )
     taxonomy_crosswalk = flow_v2_data.build_crosswalk(payments)
     sample_fixture_path = public_input_root / "taxonomy-sample-fixture.json"

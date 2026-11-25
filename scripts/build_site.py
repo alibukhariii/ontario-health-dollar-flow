@@ -77,13 +77,26 @@ def _static_overview(network: dict[str, object]) -> str:
         f"<li><a href=\"recipient/{html.escape(str(row['recipient_id']))}/\"><span>{html.escape(str(row['label']))}</span><strong>{_format_cad(str(row['amount_cad']))}</strong></a></li>"
         for row in network["recipients"][:25]
     )
+    intermediary = network.get("intermediary_note", {})
+    intermediary_note = (
+        '<aside class="recipient-coverage-note">'
+        '<p><strong>Ontario Health is not ranked as a recipient.</strong> '
+        f'Public Accounts records {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))} under Ontario Health. '
+        f'Its separate audited statements report {_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} passed onward and '
+        f'{_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} used for its operations, reconciling to '
+        f'{_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))}. '
+        'Those audited amounts are not added to the published-payment flow because no complete public recipient-level crosswalk links the records. '
+        f'<a href="{html.escape(str(intermediary.get("source_url", "")))}">Source: Ontario Health 2025–26 audited financial statements</a>.</p>'
+        '</aside>'
+    ) if intermediary else ""
     return f"""<article class="static-overview">
       <p>This page remains readable without JavaScript. The interactive network adds every program and recipient connection.</p>
       <h3>Fourteen funding purposes</h3>
       <div class="static-table-scroll"><table><thead><tr><th>Funding purpose</th><th>Amount</th><th>Share</th></tr></thead><tbody>{category_rows}</tbody></table></div>
-      <h3>Largest named recipients</h3>
+      <h3>Largest named organizations</h3>
       <ol>{top_recipients}</ol>
-      <p><a href="recipients/">Browse all {int(network['named_recipient_count']):,} named recipients</a></p>
+      <p><a href="recipients/">Browse all {int(network['named_recipient_count']):,} named organizations</a></p>
+      {intermediary_note}
     </article>"""
 
 
@@ -204,7 +217,7 @@ def generate_static_pages(output_root: Path, release: dict[str, object]) -> None
             f'<li><a href="recipient/{html.escape(recipient_id)}/"><span>{html.escape(str(recipient["label"]))}</span><strong>{_format_cad(str(recipient["amount_cad"]))}</strong></a></li>'
         )
 
-    recipients_document = f"""<!doctype html><html lang="en-CA"><head><base href="../"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="All named recipients in Ontario's 2025–26 published health-ministry payment records."><title>All named recipients | Where Ontario’s Health Dollars Went</title><link rel="stylesheet" href="styles.css"></head><body class="recipient-index"><main><a href="./">Where Ontario’s Health Dollars Went</a><h1>All {int(network['named_recipient_count']):,} named recipients</h1><p>Ranked by positive published payments in FY 2025–26.</p><ol>{''.join(recipient_links)}</ol></main></body></html>"""
+    recipients_document = f"""<!doctype html><html lang="en-CA"><head><base href="../"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="All named organizations in Ontario's 2025–26 published health-ministry payment records."><title>All named organizations | Where Ontario’s Health Dollars Went</title><link rel="stylesheet" href="styles.css"></head><body class="recipient-index"><main><a href="./">Where Ontario’s Health Dollars Went</a><h1>All {int(network['named_recipient_count']):,} named organizations</h1><p>Ranked by positive published payments in FY 2025–26. Named intermediaries are explained separately and are not included in this ranking.</p><ol>{''.join(recipient_links)}</ol></main></body></html>"""
     recipient_index = output_root / "recipients" / "index.html"
     recipient_index.parent.mkdir(parents=True, exist_ok=True)
     recipient_index.write_text(recipients_document, encoding="utf-8")

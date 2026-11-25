@@ -8,8 +8,9 @@ The 2025–26 release follows **$97.434 billion in positive payments** published
 
 ## What the product contains
 
-- One global ranking of all named payees, including providers, intermediaries, municipalities and vendors, with the payee type shown beside each result.
-- Program-specific rankings that retain each payee’s global rank and global total.
+- One recipient ranking of named non-intermediary organizations, with provider, municipality, vendor and other organization types shown beside each result.
+- A separate, reconciled treatment of amounts published under Ontario Health, Ontario Health atHome and other named intermediaries; these amounts remain evidence stops until a compatible downstream recipient crosswalk is public.
+- Program-specific rankings that retain each organization’s recipient rank and total published payments.
 - Concentration measures for the largest named payees.
 - Recipient category and program contributions.
 - Explicit evidence stops when a payment is not itemized, a downstream amount is not published, an identity is unresolved or a financial profile is unavailable.
@@ -25,6 +26,8 @@ Three analysis-ready datasets are published under [`data/derived`](data/derived)
 - **Harmonized financial statements:** 4,995 approved, source-native hospital and Ontario Health financial observations with page-level lineage.
 
 These files are derived from public records, but the connected routes, reviewed identities and harmonized statement observations are project-created. See the [dataset guide](data/README.md) for schemas, limitations and reproduction instructions.
+
+The downloadable route and alias datasets retain all 2,081 named payees, including intermediaries, for reproducibility. The public recipient diagram ranks 2,078 named non-intermediary organizations. It keeps the **$12.070 billion** published under named intermediaries separate from the **$53.114 billion** assigned to named organizations and the **$32.251 billion** that was not itemized. These three parts reconcile to the $97.434 billion positive-payment denominator.
 
 The main visual does not use the $97.013 billion net figure, the −$421.011 million pharmacy adjustment or the $92.286 billion ministry-expense frame. Those figures are documented in [the methodology](docs/METHODOLOGY.md).
 

@@ -13,7 +13,8 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
   await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
-  await expect(page.locator('#page-overview')).toContainText('$65.2B went to 2,081 named recipients.');
+  await expect(page.locator('#page-overview')).toContainText('$53.1B went to 2,078 named organizations.');
+  await expect(page.locator('#page-overview')).toContainText('$12.1B was published under intermediaries');
   await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized.');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
@@ -27,7 +28,10 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('$32.3B');
-  await expect(page.locator('.recipient-coverage-note')).not.toContainText('Source note');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$12.1B');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health is not ranked as a recipient');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B passed onward');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$892.3M used for its operations');
   await expect(page.locator('.coverage-split__itemized')).toHaveCount(0);
   await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
   await expect(page.locator('.size-key')).toHaveCount(0);
@@ -83,18 +87,17 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
   await expect(page.locator('[data-recipient-zoom-back="0"]')).toBeVisible();
 });
 
-test('search reveals every route into a recipient and intermediary outflows', async ({ page }, testInfo) => {
+test('search reveals recipient routes and explains Ontario Health without ranking it as a recipient', async ({ page }) => {
   await openNetwork(page);
   await page.locator('#recipient-search').fill('Ontario Health');
-  await page.locator('[data-search-recipient]').filter({ hasText: /^Ontario Health/ }).first().click();
+  await expect(page.locator('[data-search-recipient]').filter({ hasText: /^Ontario Health(?:\s|$)/ })).toHaveCount(0);
+  await page.locator('#recipient-search').fill('University Health Network');
+  await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
-  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health');
-  if (testInfo.project.name === 'mobile') {
-    await expect(page.locator('.network-tooltip__more')).toContainText('+ 15 more published routes');
-  } else {
-    await expect(page.locator('#active-routes .active-route--intermediary')).toHaveCount(23);
-  }
-  await expect(page.locator('.network-tooltip__outflows')).toContainText('Reported intermediary outflows');
+  await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
+  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health role documented');
+  await expect(page.locator('#active-routes .active-route--administered')).not.toHaveCount(0);
+  await expect(page.locator('.network-tooltip__outflows')).toHaveCount(0);
   await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
   await expect(page.locator('[data-close-tooltip]')).toBeVisible();
   await page.locator('[data-close-tooltip]').click();
@@ -134,13 +137,13 @@ test('the page keeps horizontal overflow inside the network viewport', async ({ 
 test('recipient deep links contain useful HTML when JavaScript is disabled', async ({ browser, request, baseURL }) => {
   const pointer = await (await request.get('/data/current.json')).json();
   const network = await (await request.get(`/${pointer.flow_v2.network_path}`)).json();
-  const recipient = network.recipients.find((row) => row.label === 'Ontario Health');
+  const recipient = network.recipients.find((row) => row.label === 'University Health Network');
   const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
   const page = await context.newPage();
   await page.goto(`/recipient/${recipient.recipient_id}/`);
-  await expect(page.getByRole('heading', { name: 'Ontario Health', exact: true })).toBeVisible();
-  await expect(page.locator('.static-recipient')).toContainText('$12.0B');
-  await expect(page.locator('.static-recipient')).toContainText('Home Care');
+  await expect(page.getByRole('heading', { name: 'University Health Network', exact: true })).toBeVisible();
+  await expect(page.locator('.static-recipient')).toContainText('$2.0B');
+  await expect(page.locator('.static-recipient')).toContainText('Operation Of Hospitals');
   await expect(page.getByText('Loading the published payment network…')).toHaveCount(0);
   await context.close();
 });

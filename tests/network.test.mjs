@@ -199,7 +199,7 @@ test('program focus keeps every system layer visible while repacking that progra
   assert.match(html, /recipient-node[^>]*is-scale-active/);
 });
 
-test('active route renderer ranks every published route and uses dotted paths for intermediaries', () => {
+test('active route renderer ranks every published route without turning payees into intermediary nodes', () => {
   assert.equal(typeof network.renderRecipientFocus, 'function');
   const layout = network.layoutFundingNetwork(fixture);
   const payload = {
@@ -211,12 +211,77 @@ test('active route renderer ranks every published route and uses dotted paths fo
     ],
   };
   const result = network.renderRecipientFocus(layout, payload);
-  assert.match(result.routes, /active-route--intermediary/);
+  assert.doesNotMatch(result.routes, /active-route--intermediary/);
   assert.ok(result.tooltip.indexOf('$30') < result.tooltip.indexOf('$10'));
   assert.match(result.tooltip, /#2/);
   assert.match(result.tooltip, /Close/);
   assert.match(result.tooltip, /75\.0%/);
   assert.match(result.tooltip, /route-share/);
+});
+
+test('Ontario Health is explanatory context rather than a ranked recipient node', () => {
+  const contract = {
+    ...fixture,
+    named_non_intermediary_amount_cad: '110.00',
+    named_non_intermediary_share_percent: '62.86',
+    named_intermediary_amount_cad: '40.00',
+    named_intermediary_share_percent: '22.86',
+    named_recipient_count: 2,
+    recipients: fixture.recipients.filter((row) => row.recipient_id !== 'b'),
+    named_routes: fixture.named_routes.filter((row) => row.recipient_id !== 'b'),
+    programs: fixture.programs.map((row) => ({
+      ...row,
+      intermediary_amount_cad: row.label === 'Transfers' ? '40.00' : '0.00',
+    })),
+    default_routes: [
+      ...fixture.default_routes.filter((row) => row.recipient_id !== 'b'),
+      { recipient_id: '__intermediary_stop__', target_type: 'intermediary_stop', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '40.00' },
+    ],
+    intermediary_note: {
+      ontario_health_public_accounts_amount_cad: '40.00',
+      ontario_health_reported_expense_total_cad: '100.00',
+      ontario_health_passed_on_cad: '80.00',
+      ontario_health_own_operations_cad: '20.00',
+      recipient_crosswalk_amount_cad: '0.00',
+      source_url: 'https://example.test/ontario-health-statements',
+    },
+  };
+  const layout = network.layoutFundingNetwork(contract, {
+    focusedCategoryId: 'long_term_care',
+    focusedProgramKey: 'Ministry Of Long-Term Care␟long_term_care␟Transfers',
+  });
+  const html = network.renderFundingNetwork(layout, contract);
+
+  assert.doesNotMatch(html, /recipient-node--intermediary/);
+  assert.match(html, /intermediary-evidence-stop/);
+  assert.match(html, /Published under an intermediary/);
+  assert.match(html, /\$40/);
+  assert.match(html, /\$80/);
+  assert.match(html, /\$20/);
+  assert.match(html, /Ontario Health is not ranked as a recipient/);
+  assert.match(html, /https:\/\/example\.test\/ontario-health-statements/);
+});
+
+test('recipient route uses a dotted explanatory treatment when Ontario Health has a documented role', () => {
+  const layout = network.layoutFundingNetwork(fixture);
+  const payload = {
+    payment_label_id: 'a', display_label: 'Alpha Hospital', payee_type: 'hospital corporation',
+    published_payment_total_cad: '90.00', global_rank: 1,
+    incoming_routes: [{
+      ministry: 'Ministry Of Health', category_id: 'hospital_care',
+      category_label: 'Hospital care', program_label: 'Operations', amount_cad: '90.00',
+      intermediary_context: {
+        label: 'Ontario Health', role: 'funding and accountability role',
+        amount_status: 'not_separately_published',
+        explanation: 'Ontario Health has a documented funding and accountability role. The recipient-level intermediary amount is not separately published.',
+      },
+    }],
+  };
+  const result = network.renderRecipientFocus(layout, payload);
+
+  assert.match(result.routes, /active-route--administered/);
+  assert.match(result.tooltip, /Ontario Health role documented/);
+  assert.match(result.tooltip, /amount is not separately published/);
 });
 
 test('formatters use one decimal place and normalize display casing', () => {

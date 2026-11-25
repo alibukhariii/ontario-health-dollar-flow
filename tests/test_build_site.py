@@ -66,10 +66,10 @@ class BuildSiteTests(unittest.TestCase):
             network = json.loads((release_root / "network-overview.json").read_text(encoding="utf-8"))
             self.assertEqual(len(network["categories"]), 14)
             self.assertEqual(len(network["programs"]), 74)
-            self.assertEqual(len(network["recipients"]), 2081)
-            self.assertEqual(network["named_recipient_count"], 2081)
+            self.assertEqual(len(network["recipients"]), 2078)
+            self.assertEqual(network["named_recipient_count"], 2078)
             self.assertEqual(network["displayed_recipient_count"], 50)
-            self.assertEqual(network["collapsed_recipient_count"], 2031)
+            self.assertEqual(network["collapsed_recipient_count"], 2028)
             self.assertEqual(network["signed_adjustments_cad"], "-421011479.00")
             self.assertEqual(network["net_published_payments_cad"], "97012970397.00")
             self.assertEqual(
@@ -77,6 +77,17 @@ class BuildSiteTests(unittest.TestCase):
                 Decimal(network["not_itemized_to_public_recipient_cad"]),
             )
             self.assertEqual(network["not_itemized_share_percent"], "33.10")
+            self.assertEqual(network["named_non_intermediary_amount_cad"], "53113532604.00")
+            self.assertEqual(network["named_intermediary_amount_cad"], "12069601884.00")
+            self.assertEqual(
+                Decimal(network["named_non_intermediary_amount_cad"])
+                + Decimal(network["named_intermediary_amount_cad"])
+                + Decimal(network["not_itemized_to_public_recipient_cad"]),
+                Decimal(network["positive_published_payments_cad"]),
+            )
+            self.assertEqual(network["intermediary_note"]["ontario_health_passed_on_cad"], "47311033000.00")
+            self.assertEqual(network["intermediary_note"]["ontario_health_own_operations_cad"], "892331000.00")
+            self.assertEqual(network["intermediary_note"]["ontario_health_reported_expense_total_cad"], "48203364000.00")
             program_keys = {row["program_key"] for row in network["programs"]}
             self.assertTrue(all(row["program_key"] in program_keys for row in network["default_routes"]))
             recipient_ids = {row["recipient_id"] for row in network["recipients"]}
@@ -84,7 +95,7 @@ class BuildSiteTests(unittest.TestCase):
             self.assertTrue(all(row["recipient_id"] in recipient_ids for row in network["named_routes"]))
             self.assertEqual(
                 sum(Decimal(row["amount_cad"]) for row in network["named_routes"]),
-                Decimal(network["named_destination_amount_cad"]),
+                Decimal(network["named_non_intermediary_amount_cad"]),
             )
             route_totals = {
                 program_key: sum(
@@ -99,17 +110,17 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertEqual(route_totals[program["program_key"]], Decimal(program["amount_cad"]))
             root_html = (output_root / "index.html").read_text(encoding="utf-8")
             self.assertIn("Hospital care", root_html)
-            self.assertIn("2,081 named recipients", root_html)
+            self.assertIn("2,078 named organizations", root_html)
             self.assertNotIn("Loading the published payment network", root_html)
-            ontario_health = next(row for row in network["recipients"] if row["label"] == "Ontario Health")
-            recipient_page = output_root / "recipient" / ontario_health["recipient_id"] / "index.html"
-            self.assertTrue(recipient_page.is_file())
-            recipient_html = recipient_page.read_text(encoding="utf-8")
-            self.assertIn("Ontario Health", recipient_html)
-            self.assertIn("Home Care", recipient_html)
-            self.assertIn("$12.0B", recipient_html)
-            self.assertIn(f'data-recipient-id="{ontario_health["recipient_id"]}"', recipient_html)
-            self.assertNotIn("Loading the published payment network", recipient_html)
+            self.assertNotIn("Ontario Health", {row["label"] for row in network["recipients"]})
+            self.assertEqual(network["recipients"][0]["label"], "University Health Network")
+            self.assertEqual(network["recipients"][0]["global_rank"], 1)
+            uhn_payload = json.loads((release_root / network["recipients"][0]["path"]).read_text(encoding="utf-8"))
+            self.assertEqual(uhn_payload["global_rank"], 1)
+            self.assertIn("Ontario Health is not ranked as a recipient", root_html)
+            self.assertIn("$47.3B", root_html)
+            self.assertIn("$892.3M", root_html)
+            self.assertIn("intermediary-evidence-stop", (output_root / "network.mjs").read_text(encoding="utf-8"))
             self.assertTrue((output_root / "recipients" / "index.html").is_file())
             convergence = json.loads((release_root / "convergence-index.json").read_text(encoding="utf-8"))
             self.assertEqual(convergence["not_itemized_to_public_recipient_cad"], "32250847388.00")
@@ -154,6 +165,7 @@ class BuildSiteTests(unittest.TestCase):
             self.assertIn('<div class="overview-chart__axis">', html)
             self.assertIn('class="overview-statement__unitemized"', html)
             self.assertIn("<strong>$32.3B (33.1%)</strong> was not itemized", html)
+            self.assertIn("<strong>$12.1B</strong> was published under intermediaries", html)
             self.assertNotIn("Ontario · 2025–26", html)
             self.assertNotIn("Scroll to follow the money", html)
             self.assertNotIn("The organization’s accounts", html)

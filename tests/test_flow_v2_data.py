@@ -220,6 +220,58 @@ class FlowV2DataTests(unittest.TestCase):
             ministry_total = sum(Decimal(row["amount_cad"]) for row in category["ministry_amounts"])
             self.assertEqual(ministry_total, Decimal(category["amount_cad"]))
 
+    def test_network_treats_intermediaries_as_reconciled_stops_not_recipients(self):
+        rows = [
+            payment(
+                "provider", 70, "Operation Of Hospitals", label_id="provider",
+                label="Alpha Hospital", recipient_class="hospital_corporation",
+            ),
+            payment(
+                "intermediary", 10, "Operation Of Hospitals", label_id="oh",
+                label="Ontario Health", recipient_class="intermediary",
+            ),
+            payment(
+                "aggregate", 20, "Operation Of Hospitals", label_id="aggregate",
+                label="Program total", recipient_class="program_aggregate",
+            ),
+        ]
+        overview = flow_v2_data.build_overview("2025-26", rows)
+        categories = {
+            category_id: flow_v2_data.build_category_payload("2025-26", category_id, rows, set())
+            for category_id, _ in flow_v2_data.CATEGORIES
+        }
+        payee_index, payee_payloads = flow_v2_data.build_payee_payloads("2025-26", rows, {}, {})
+        convergence = flow_v2_data.build_convergence_index(payee_index, overview)
+
+        network = flow_v2_data.build_network_overview(
+            overview, categories, convergence, payee_payloads, {}, labelled_count=10,
+        )
+
+        self.assertEqual([row["label"] for row in network["recipients"]], ["Alpha Hospital"])
+        self.assertEqual(network["named_non_intermediary_amount_cad"], "70.00")
+        self.assertEqual(network["named_intermediary_amount_cad"], "10.00")
+        self.assertEqual(network["not_itemized_to_public_recipient_cad"], "20.00")
+        self.assertEqual(network["named_recipient_count"], 1)
+        self.assertNotIn("oh", {row["recipient_id"] for row in network["named_routes"]})
+        program = next(row for row in network["programs"] if row["label"] == "Operation Of Hospitals")
+        self.assertEqual(program["intermediary_amount_cad"], "10.00")
+        self.assertEqual(program["not_itemized_amount_cad"], "20.00")
+        program_routes = [
+            row for row in network["default_routes"]
+            if row["program_key"] == program["program_key"]
+        ]
+        self.assertEqual(
+            {row["target_type"]: Decimal(row["amount_cad"]) for row in program_routes},
+            {"named_recipient": Decimal("70.00"), "intermediary_stop": Decimal("10.00"), "not_itemized": Decimal("20.00")},
+        )
+        self.assertEqual(
+            sum((Decimal(row["amount_cad"]) for row in program_routes), Decimal("0")),
+            Decimal(program["amount_cad"]),
+        )
+        route = payee_payloads["provider"]["incoming_routes"][0]
+        self.assertEqual(route["intermediary_context"]["label"], "Ontario Health")
+        self.assertEqual(route["intermediary_context"]["amount_status"], "not_separately_published")
+
     def test_authoritative_entity_level_overrides_a_misleading_payment_class(self):
         rows = [
             payment(

@@ -30,6 +30,96 @@ CATEGORIES = (
 CATEGORY_LABELS = dict(CATEGORIES)
 RESIDUAL_CATEGORY = "ministry_operations_and_other_published_payments"
 PAYMENTS_SOURCE_URL = "https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments"
+ONTARIO_HEALTH_STATEMENT_URL = "https://www.ontariohealth.ca/content/dam/ontariohealth/documents/financial-statements-2025-26.pdf"
+ONTARIO_HEALTH_ATHOME_STATEMENT_URL = "https://www.ontariohealthathome.ca/blobohahprod4cd80afe1b/wp-content/uploads/2026/06/OHaH-2025-26-Audited-Financial-Statements-EN.pdf"
+
+
+INTERMEDIARY_PROGRAM_CONTEXT = {
+    "Operation Of Hospitals": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Cancer Treatment Services": {
+        "label": "Ontario Health",
+        "role": "clinical-program funding role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Cancer Screening Programs": {
+        "label": "Ontario Health",
+        "role": "clinical-program funding role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Renal Services": {
+        "label": "Ontario Health",
+        "role": "clinical-program funding role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Organ And Tissue Donation And Transplantation Services": {
+        "label": "Ontario Health",
+        "role": "clinical-program funding role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Ontario Drug Programs": {
+        "label": "Ontario Health",
+        "role": "clinical-program funding role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Community Mental Health": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Addiction Program": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Community Support Services": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Assisted Living Services In Supportive Housing": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Acquired Brain Injury": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Community Health Centres": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+    "Home Care": {
+        "label": "Ontario Health and Ontario Health atHome",
+        "role": "funding and contracting role",
+        "source_url": ONTARIO_HEALTH_ATHOME_STATEMENT_URL,
+    },
+    "Long-term care transfer payments": {
+        "label": "Ontario Health",
+        "role": "funding and accountability role",
+        "source_url": ONTARIO_HEALTH_STATEMENT_URL,
+    },
+}
+
+
+def intermediary_context(program_label: str) -> dict[str, str] | None:
+    context = INTERMEDIARY_PROGRAM_CONTEXT.get(program_label)
+    if not context:
+        return None
+    return {
+        **context,
+        "amount_status": "not_separately_published",
+        "explanation": (
+            f"{context['label']} has a documented {context['role']} for this program. "
+            "The share of this published payee amount that passed through the intermediary is not separately published."
+        ),
+    }
 
 
 def payment_source(period: str, source_id: str = "pa-payments-2025-26-r3ab37bb7") -> dict[str, str]:
@@ -305,6 +395,7 @@ def _destination_type(recipient_class: str) -> str:
 ENTITY_LEVEL_TYPES = {
     "hospital_corporation": "hospital corporation",
     "provincial_agency_and_intermediary": "intermediary",
+    "program_administrator_and_intermediary": "intermediary",
     "municipality": "municipality",
     "public_health_unit": "public health unit",
     "long_term_care_home": "long-term care home",
@@ -471,6 +562,7 @@ def build_payee_payloads(
                 "category_label": CATEGORY_LABELS[category_id],
                 "program_label": program,
                 "amount_cad": money(amount),
+                **({"intermediary_context": context} if (context := intermediary_context(program)) else {}),
                 "source": payment_source(fiscal_year, rows[0].get("source_version_id") or "pa-payments-2025-26-r3ab37bb7"),
             }
             for (ministry, category_id, program), amount in routes.items()
@@ -646,6 +738,7 @@ def build_organization_payloads(
             "category_label": CATEGORY_LABELS[category_id],
             "program_label": program,
             "amount_cad": money(amount),
+            **({"intermediary_context": context} if (context := intermediary_context(program)) else {}),
         } for (ministry, category_id, program), amount in routes.items()]
         incoming.sort(key=lambda item: (-Decimal(str(item["amount_cad"])), item["category_label"], item["program_label"]))
         profile_paths = sorted({
@@ -788,6 +881,9 @@ def build_convergence_index(
         row["share_of_named_payees_percent"] = _share(amount, named_total)
         row["share_of_all_positive_percent"] = _share(amount, positive_total)
 
+    for rank, row in enumerate(organizations, start=1):
+        row["recipient_rank"] = rank
+
     rank_by_id = {str(row["payment_label_id"]): row for row in payees}
     for row in organizations + intermediaries:
         ranked = rank_by_id[str(row["payment_label_id"])]
@@ -832,6 +928,7 @@ def build_network_overview(
     convergence: dict[str, object],
     payee_payloads: dict[str, dict[str, object]],
     organization_payloads: dict[str, dict[str, object]],
+    intermediary_payloads: dict[str, dict[str, object]] | None = None,
     *,
     labelled_count: int = 50,
 ) -> dict[str, object]:
@@ -854,6 +951,14 @@ def build_network_overview(
                 ),
                 Decimal("0"),
             )
+            intermediary_amount = sum(
+                (
+                    Decimal(str(destination["amount_cad"]))
+                    for destination in row.get("destinations", [])
+                    if destination.get("destination_type") == "intermediary"
+                ),
+                Decimal("0"),
+            )
             programs.append({
                 "program_key": program_key(ministry, category_id, str(row["label"])),
                 "program_id": row["program_id"],
@@ -862,6 +967,7 @@ def build_network_overview(
                 "ministry": ministry,
                 "amount_cad": money(amount),
                 "not_itemized_amount_cad": money(not_itemized_amount),
+                "intermediary_amount_cad": money(intermediary_amount),
             })
         categories.append({
             "category_id": category_id,
@@ -881,7 +987,7 @@ def build_network_overview(
     default_routes: list[dict[str, object]] = []
     collapsed_routes: dict[str, Decimal] = defaultdict(Decimal)
     collapsed_amount = Decimal("0")
-    for position, convergence_row in enumerate(convergence["payees"]):
+    for position, convergence_row in enumerate(convergence["organizations"]):
         recipient_id = str(convergence_row["payment_label_id"])
         payload = organization_payloads.get(recipient_id) or payee_payloads.get(recipient_id)
         if payload is None:
@@ -893,10 +999,10 @@ def build_network_overview(
             "payee_type": convergence_row["payee_type"],
             "destination_type": convergence_row["destination_type"],
             "amount_cad": convergence_row["published_payment_total_cad"],
-            "global_rank": convergence_row["global_rank"],
+            "global_rank": convergence_row.get("recipient_rank", convergence_row["global_rank"]),
             "path": convergence_row["path"],
             "has_profile": bool(convergence_row.get("has_profile")),
-            "is_intermediary": convergence_row["destination_type"] == "intermediary",
+            "is_intermediary": False,
             "label_by_default": label_by_default,
         })
         for route in payload.get("incoming_routes", []):
@@ -932,6 +1038,12 @@ def build_network_overview(
         "amount_cad": money(amount),
     } for key, amount in sorted(collapsed_routes.items()) if amount)
     default_routes.extend({
+        "recipient_id": "__intermediary_stop__",
+        "target_type": "intermediary_stop",
+        "program_key": str(program["program_key"]),
+        "amount_cad": str(program["intermediary_amount_cad"]),
+    } for program in programs if Decimal(str(program["intermediary_amount_cad"])))
+    default_routes.extend({
         "recipient_id": "__not_itemized__",
         "target_type": "not_itemized",
         "program_key": str(program["program_key"]),
@@ -948,6 +1060,42 @@ def build_network_overview(
         if ministry_total != Decimal(str(category["amount_cad"])):
             raise ValueError(f"Network ministry split does not reconcile for {category['category_id']}")
 
+    named_intermediary_total = sum(
+        (Decimal(str(row["published_payment_total_cad"])) for row in convergence["intermediaries"]),
+        Decimal("0"),
+    )
+    named_non_intermediary_total = sum(
+        (Decimal(str(row["published_payment_total_cad"])) for row in convergence["organizations"]),
+        Decimal("0"),
+    )
+    positive_total = Decimal(str(overview["positive_published_payments_cad"]))
+    if named_non_intermediary_total + named_intermediary_total != Decimal(str(overview["named_destination_amount_cad"])):
+        raise ValueError("Named organizations and intermediaries do not reconcile to named destinations")
+
+    intermediary_payloads = intermediary_payloads or {}
+    ontario_health_payload = intermediary_payloads.get("ontario_health", {})
+    oh_groups = {str(row.get("group_id")): Decimal(str(row.get("amount_cad", "0"))) for row in ontario_health_payload.get("groups", [])}
+    oh_public_accounts_amount = sum(
+        (
+            Decimal(str(row["published_payment_total_cad"]))
+            for row in convergence["intermediaries"]
+            if str(row.get("display_label", "")).strip().casefold() == "ontario health"
+        ),
+        Decimal("0"),
+    )
+    intermediary_note = {
+        "ontario_health_public_accounts_amount_cad": money(oh_public_accounts_amount),
+        "ontario_health_reported_expense_total_cad": str(ontario_health_payload.get("reported_expense_total_cad", "0.00")),
+        "ontario_health_passed_on_cad": money(oh_groups.get("passed_on", Decimal("0"))),
+        "ontario_health_own_operations_cad": money(oh_groups.get("own_operations", Decimal("0"))),
+        "recipient_crosswalk_amount_cad": "0.00",
+        "source_url": str(ontario_health_payload.get("source", {}).get("url") or ONTARIO_HEALTH_STATEMENT_URL),
+        "explanation": (
+            "Ontario Health is shown as an explanatory intermediary, not ranked as a recipient. "
+            "Its audited transfers and operations are a separate reporting frame and are not added to the published-payment total."
+        ),
+    }
+
     return {
         "schema_version": "3.0.0",
         "fiscal_year": overview["fiscal_year"],
@@ -955,6 +1103,11 @@ def build_network_overview(
         "signed_adjustments_cad": overview["signed_adjustments_cad"],
         "net_published_payments_cad": overview["net_published_payments_cad"],
         "named_destination_amount_cad": overview["named_destination_amount_cad"],
+        "named_non_intermediary_amount_cad": money(named_non_intermediary_total),
+        "named_non_intermediary_share_percent": _share(named_non_intermediary_total, positive_total),
+        "named_intermediary_amount_cad": money(named_intermediary_total),
+        "named_intermediary_share_percent": _share(named_intermediary_total, positive_total),
+        "intermediary_note": intermediary_note,
         "named_recipient_count": len(recipients),
         "displayed_recipient_count": min(labelled_count, len(recipients)),
         "collapsed_recipient_count": max(0, len(recipients) - labelled_count),

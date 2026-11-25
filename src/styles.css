@@ -90,9 +90,14 @@ a { color:inherit; }
 .network-shell { position:relative; width:100%; display:grid; grid-template-columns:minmax(0,1fr); gap:1.25rem; align-items:start; margin-top:1.5rem; }
 .network-shell:has(.network-tooltip:not([hidden])) { grid-template-columns:minmax(0,1fr) minmax(320px,390px); }
 .network-canvas { position:relative; width:100%; min-width:0; overflow:hidden; }
-.recipient-coverage-note { max-width:980px; margin:1.5rem auto 1rem; color:var(--quiet); font-size:.78rem; line-height:1.45; text-align:center; }
+.recipient-coverage-note { max-width:1080px; margin:1.5rem auto 1rem; color:var(--quiet); font-size:.78rem; line-height:1.45; text-align:center; }
 .recipient-coverage-note__label { display:block; margin-bottom:.65rem; color:var(--quiet); font-size:.7rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
-.recipient-coverage-note p { max-width:860px; margin:.8rem 0 0; }
+.recipient-coverage-note__amounts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); }
+.recipient-coverage-note__amounts span { display:grid; gap:.1rem; padding:.55rem .8rem; }
+.recipient-coverage-note__amounts span + span { border-left:1px solid var(--ink); }
+.recipient-coverage-note__amounts strong { color:var(--ink); font-size:1rem; font-variant-numeric:tabular-nums; }
+.recipient-coverage-note p { max-width:920px; margin:.8rem auto 0; }
+.recipient-coverage-note a { color:inherit; text-underline-offset:.18em; }
 .coverage-split { width:100%; display:flex; min-height:3.4rem; overflow:hidden; border:1px solid var(--ink); }
 .coverage-split > span { width:var(--coverage-share); display:flex; align-items:center; gap:.35rem; padding:.65rem .8rem; font-size:.78rem; line-height:1.2; }
 .coverage-split__itemized { color:#fff; background:#000; }
@@ -109,6 +114,7 @@ a { color:inherit; }
 .program-focus-list__item > span:nth-child(2) { min-width:0; display:grid; gap:.25rem; }
 .program-focus-list__item strong { overflow-wrap:anywhere; }
 .program-focus-list__item small { color:var(--quiet); font-size:.64rem; }
+.program-focus-list__item .program-focus-list__intermediary { color:var(--ink); text-decoration:underline dotted; text-underline-offset:.2em; }
 .program-focus-list__item > b { font-size:.72rem; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .program-focus-list__index { width:1.35rem; height:1.35rem; display:grid; place-items:center; color:#fff; border-radius:50%; background:#000; font-size:.68rem; font-weight:800; }
 .funding-network { --moh:#f15a38; --mltc:#3157d5; --ink:#050505; width:100%; min-width:0; height:auto; display:block; overflow:visible; }
@@ -120,6 +126,13 @@ a { color:inherit; }
 .network-edge--intermediary { stroke-dasharray:3 7; stroke-width:2; opacity:.45; }
 .active-route { stroke:var(--ink); fill:none; stroke-linecap:round; }
 .active-route--intermediary { stroke-dasharray:5 8; }
+.active-route--administered { stroke:#fff; stroke-dasharray:1 7; stroke-linecap:round; pointer-events:none; }
+.intermediary-evidence-stop { width:min(660px,calc(100% - 2rem)); display:grid; grid-template-columns:1fr auto; gap:.25rem 1rem; align-items:baseline; margin:.5rem auto 1rem; padding:.8rem 1rem; border:1px dashed var(--ink); background:#f1f1ed; color:var(--ink); }
+.intermediary-evidence-stop span { font-weight:800; }
+.intermediary-evidence-stop strong { font-size:1.1rem; font-variant-numeric:tabular-nums; }
+.intermediary-evidence-stop p { grid-column:1 / -1; max-width:64ch; margin:0; color:var(--quiet); font-size:.72rem; line-height:1.4; }
+.route-intermediary-note { display:block; margin-top:.2rem; padding-left:.7rem; border-left:1px dotted currentColor; color:var(--quiet); font-size:.65rem; line-height:1.35; }
+.mobile-program__stop { border-top:1px dashed currentColor; color:var(--quiet); }
 .funding-network:has(.recipient-node.is-active) .default-recipient-edges { opacity:.08; }
 .category-node { cursor:pointer; }
 .category-node,.program-node,.recipient-node { transition:opacity .32s ease; }
@@ -278,6 +291,8 @@ a { color:inherit; }
   .network-instruction { justify-self:start; }
   .funding-network,.network-legend { display:none; }
   .recipient-coverage-note { margin-top:1rem; font-size:1rem; }
+  .recipient-coverage-note__amounts { grid-template-columns:1fr; }
+  .recipient-coverage-note__amounts span + span { border-top:1px solid var(--ink); border-left:0; }
   .coverage-split { display:grid; }
   .coverage-split > span { width:100%; }
   .coverage-split__aggregate { border-top:1px solid #000; border-left:0; }

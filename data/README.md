@@ -10,7 +10,7 @@ All amounts are nominal Canadian dollars. The current release covers fiscal year
 
 **Grain:** one supported ministry → funding purpose → official program → named recipient route.
 
-This is the main dataset behind the interactive diagram. It contains 3,926 routes and reconciles to **$65,183,134,488** itemized to 2,081 named public payees.
+This is the analytical route dataset behind the interactive diagram. It contains 3,926 routes and reconciles to **$65,183,134,488** itemized to 2,081 named public payees. It deliberately retains intermediary payees for reproducibility.
 
 Important fields:
 
@@ -22,6 +22,8 @@ Important fields:
 - `source_url`, `source_id`, `source_limitation`: direct evidence lineage.
 
 The routes cover named public payees only. A further **$32,250,847,388** was published through aggregate or non-public-recipient lines and is therefore not assigned to named recipients.
+
+For presentation, the diagram separates **$12,069,601,884** published under named intermediaries from **$53,113,532,604** assigned to 2,078 named non-intermediary organizations. Intermediaries remain in this source dataset, but they are not ranked as recipient organizations in the main visual.
 
 ### `derived/organization-alias-index.csv`
 

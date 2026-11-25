@@ -212,7 +212,7 @@ function renderSearchResults() {
   }
   elements.results.innerHTML = matches.length
     ? matches.map((row) => `<button type="button" data-search-recipient="${escapeHtml(row.recipient_id)}"><span>${escapeHtml(displayLabel(row.label))}<small>${escapeHtml(row.payee_type)}</small></span><strong>${formatCad(row.amount_cad)}</strong></button>`).join('')
-    : '<p>No named recipient matches that search.</p>';
+    : '<p>No named organization matches that search.</p>';
 }
 
 function bindNetworkEvents() {
@@ -332,7 +332,7 @@ async function loadNetwork() {
     pointer = await fetchJson('data/current.json');
     releaseBase = directoryOf(pointer.flow_v2.network_path);
     contract = await fetchJson(pointer.flow_v2.network_path);
-    elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named recipients`;
+    elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named organizations`;
     for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
       elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
     }
