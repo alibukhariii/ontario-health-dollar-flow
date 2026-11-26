@@ -1,6 +1,6 @@
 # Embed the visualization
 
-The `?embed=1` view skips the title landing page and opens on the payment overview. Readers can scroll inside the frame to reach the recipient network and use the same search, recipient details and evidence links as on the full site.
+The `?embed=1` view includes the complete experience, starting with the title landing page and continuing through the payment overview, recipient network and evidence links. Readers can scroll inside the frame and use the same search and recipient details as on the full site.
 
 ```html
 <iframe
@@ -14,6 +14,6 @@ The `?embed=1` view skips the title landing page and opens on the payment overvi
 </a></p>
 ```
 
-Keep the iframe at full container width and give it enough height for comfortable scrolling. The embedded view keeps the payment source, project notes and attribution. External evidence links open in a new tab, and the **Open the full project** link exits the frame.
+Keep the iframe at full container width and give it enough height for comfortable scrolling. The embedded view keeps the landing page, payment source, project notes and attribution. External evidence links open in a new tab, and the **Open the full project** link exits the frame.
 
 The website is static and uses no login or private API. The iframe contains a keyboard-accessible list alternative and links to the public data files. Test the embed within the host portfolio at desktop and phone widths before publication; the parent page controls the iframe’s height.

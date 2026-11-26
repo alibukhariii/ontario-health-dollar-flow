@@ -26,11 +26,11 @@ a { color:inherit; }
 .landing__copy { align-self:center; }
 .landing h1 { max-width:1500px; margin:0; font-family:var(--display); font-size:clamp(4.4rem,11.2vw,13rem); font-weight:900; letter-spacing:-.085em; line-height:.76; }
 .landing__copy p { max-width:760px; margin:clamp(2rem,5vh,4rem) 0 0 auto; font-size:clamp(1.1rem,1.75vw,1.55rem); line-height:1.35; }
-.landing__meta { display:flex; justify-content:space-between; align-items:end; gap:2rem; padding-right:clamp(2rem,4vw,5rem); font-size:clamp(1.1rem,1.75vw,1.55rem); line-height:1.35; }
+.landing__meta { display:flex; justify-content:space-between; align-items:end; gap:2rem; padding-right:clamp(2rem,4vw,5rem); font-size:clamp(1rem,1.5vw,1.4rem); line-height:1.35; }
+.landing__meta > span:last-child { text-align:right; }
 .landing__meta a { text-underline-offset:.2em; }
 .landing__scroll { display:block; margin-top:1.4rem; color:#d0d0cc; font-size:.9rem; font-weight:700; letter-spacing:.04em; }
 .embed-open-full { display:none; }
-html.is-embedded #page-landing { display:none; }
 html.is-embedded .embed-open-full { display:block; margin:0 0 1rem; font-size:.95rem; font-weight:700; }
 html.is-embedded .embed-open-full a { color:inherit; text-underline-offset:.2em; }
 .landing__rule { position:absolute; right:clamp(1.3rem,4vw,4.5rem); bottom:0; width:1px; height:17vh; background:#fff; transform-origin:top; animation:rule-in 1s .35s both; }
@@ -133,8 +133,8 @@ html.is-embedded .embed-open-full a { color:inherit; text-underline-offset:.2em;
 .network-edge { fill:none; stroke-linecap:round; transition:opacity .32s ease,stroke-width .32s ease; }
 .network-edge--moh { stroke:var(--moh); }
 .network-edge--mltc { stroke:var(--mltc); }
-.network-edge--recipient { stroke:#111; stroke-width:1.25; opacity:.16; }
-.network-edge--intermediary { stroke-dasharray:3 7; stroke-width:2; opacity:.45; }
+.network-edge--recipient { stroke:#111; opacity:.16; }
+.network-edge--intermediary { stroke-dasharray:1 7; opacity:.62; }
 .network-edge--administered { stroke-dasharray:1 8; stroke-linecap:round; }
 .active-route { stroke:var(--ink); fill:none; stroke-linecap:round; }
 .active-route--intermediary { stroke-dasharray:5 8; }
@@ -349,7 +349,7 @@ html.is-embedded .embed-open-full a { color:inherit; text-underline-offset:.2em;
 }
 
 @media (max-width: 800px) {
-  .landing__meta { font-size:clamp(1.1rem,1.75vw,1.55rem); }
+  .landing__meta { font-size:clamp(1rem,1.5vw,1.4rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {
