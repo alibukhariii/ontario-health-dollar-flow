@@ -135,7 +135,7 @@ html.is-embedded .embed-open-full a { color:inherit; text-underline-offset:.2em;
 .network-edge--mltc { stroke:var(--mltc); }
 .network-edge--recipient { stroke:#111; opacity:.16; }
 .network-edge--intermediary { stroke-dasharray:1 7; opacity:.62; }
-.network-edge--administered { stroke-dasharray:1 8; stroke-linecap:round; }
+.network-edge--administered { stroke-dasharray:1 8; stroke-linecap:round; opacity:.62; }
 .active-route { stroke:var(--ink); fill:none; stroke-linecap:round; }
 .active-route--intermediary { stroke-dasharray:5 8; }
 .active-route--administered { stroke:#111; stroke-dasharray:1 8; stroke-linecap:round; pointer-events:none; }
