@@ -12,8 +12,8 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__copy')).toContainText("Follow the money through Ontario's health system from the ministry to the recipient");
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
-  await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
-  await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,079 named organizations');
+  await expect(page.locator('#page-overview')).toContainText('Ontario’s Ministry of Health and Ministry of Long-Term Care paid $97.4B* across the positive payment entries published for 2025–26.');
+  await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,078 named organizations');
   await expect(page.locator('#page-overview')).not.toContainText('$12.1B');
   await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized in published records.');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
@@ -27,7 +27,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(24);
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
-  await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries are treated');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries fit in');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$12.0B');
   await expect(page.locator('.recipient-coverage-note')).toContainText('audited statements report $48.2B in expenses');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers to providers and long-term care');

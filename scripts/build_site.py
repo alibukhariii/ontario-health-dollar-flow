@@ -64,7 +64,7 @@ def _static_recipient(recipient: dict[str, object], payload: dict[str, object], 
         <thead><tr><th>Ministry</th><th>Funding purpose</th><th>Official program</th><th>Amount</th></tr></thead>
         <tbody>{_route_rows(payload)}</tbody>
       </table></div>
-      <p class="static-recipient__source">Source: <a href="{html.escape(source['url'])}">{html.escape(source['label'])}</a></p>
+      <p class="static-recipient__source">Sources: <a href="{html.escape(source['url'])}">{html.escape(source['label'])}</a> · <a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/recipient-funding-routes.csv">download route data with source links (CSV)</a></p>
     </article>"""
 
 
@@ -80,23 +80,19 @@ def _static_overview(network: dict[str, object]) -> str:
     intermediary = network.get("intermediary_note", {})
     intermediary_note = (
         '<aside class="recipient-coverage-note">'
-        f'<p><strong>How intermediaries are treated.</strong> Public Accounts names Ontario Health as the payee of {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))}. '
-        f'Ontario Health’s audited statements report {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in expenses, including '
-        f'{_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in transfers to providers and long-term care and '
-        f'{_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} in its own operations. '
-        f'The {_format_cad(str(intermediary.get("ontario_health_transfer_gap_vs_public_accounts_cad", "0")))} difference reflects funding Ontario Health oversees that may be paid directly by ministries; it does not identify additional named-recipient amounts. '
-        f'Ontario Health atHome separately reported {_format_cad(str(intermediary.get("ontario_health_athome_reported_expense_total_cad", "0")))} in expenses, including '
-        f'{_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care. These are overlapping views, not amounts to add together. '
-        'These published figures overlap and should not be added together. Public records do not show the exact intermediary share of each recipient payment. '
-        f'<a href="{html.escape(str(intermediary.get("source_url", "")))}">Ontario Health source</a>; '
-        f'<a href="{html.escape(str(intermediary.get("athome_source_url", "")))}">Ontario Health atHome source</a>.</p>'
+        '<p><strong>How intermediaries fit in.</strong> Ontario Health and Ontario Health atHome can oversee or pass along public funding. Public records do not show each recipient’s exact share through them. Dotted lines mark documented involvement; their width reuses the recipient amount already shown and does not add dollars.</p>'
+        '<details><summary>See the published agency figures</summary>'
+        f'<p>Public Accounts lists {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))} paid to Ontario Health. Ontario Health reports {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in transfers and {_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} for its own operations. The transfer figure includes funding Ontario Health oversees that ministries may pay directly, so the views overlap. Ontario Health atHome reports {_format_cad(str(intermediary.get("ontario_health_athome_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care. Do not add these figures to recipient amounts.</p>'
+        f'<p>Sources: <a href="{html.escape(str(intermediary.get("source_url", "")))}">Ontario Health</a>; '
+        f'<a href="{html.escape(str(intermediary.get("athome_source_url", "")))}">Ontario Health atHome</a>.</p></details>'
         '<nav class="evidence-links" aria-label="Evidence and project information"><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/METHODOLOGY.md">Methodology</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/LIMITATIONS.md">Limitations</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/tree/main/data/derived">Download data</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/issues/new?template=data-error.yml">Report a data error</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/CORRECTIONS.md">Corrections</a></nav>'
-        '<p class="source-attribution">Payment data: Ontario Public Accounts 2025–26, © King’s Printer for Ontario, used under the Ontario.ca Terms of Use. This project is not endorsed by the Government of Ontario.</p>'
+        '<p class="source-attribution">Payment data: Ontario Public Accounts 2025–26, © King’s Printer for Ontario, used under the <a href="https://www.ontario.ca/page/terms-use">Ontario.ca Terms of Use</a>. This project is not endorsed by the Government of Ontario.</p>'
         '</aside>'
     ) if intermediary else ""
     return f"""<article class="static-overview">
       <p>This page remains readable without JavaScript. The interactive network adds every program and recipient connection.</p>
       <h3>Fourteen funding purposes</h3>
+      <p>Funding purposes are project groupings; program names come from published records.</p>
       <div class="static-table-scroll"><table><thead><tr><th>Funding purpose</th><th>Amount</th><th>Share</th></tr></thead><tbody>{category_rows}</tbody></table></div>
       <h3>Largest named organizations</h3>
       <ol>{top_recipients}</ol>

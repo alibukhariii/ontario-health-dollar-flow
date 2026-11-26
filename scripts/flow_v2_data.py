@@ -1120,6 +1120,10 @@ def build_network_overview(
         "named_intermediary_share_percent": _share(named_intermediary_total, positive_total),
         "intermediary_note": intermediary_note,
         "named_payee_count": len(convergence["payees"]),
+        "named_payee_count_excluding_ontario_health": sum(
+            1 for row in convergence["payees"]
+            if str(row.get("display_label", "")).strip().casefold() != "ontario health"
+        ),
         "named_recipient_count": len(recipients),
         "displayed_recipient_count": min(labelled_count, len(recipients)),
         "collapsed_recipient_count": max(0, len(recipients) - labelled_count),

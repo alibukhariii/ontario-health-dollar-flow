@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Follow Ontario’s published health-ministry payments from the ministry to the recipient.">
     <title>Where Ontario’s Health Dollars Went</title>
+    <script>if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('is-embedded')</script>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -14,6 +15,7 @@
         <div class="landing__copy">
           <h1 id="landing-title">Where Ontario’s<br>Health Dollars Went</h1>
           <p>Follow the money through Ontario's health system from the ministry to the recipient</p>
+          <span class="landing__scroll">↓ Scroll to explore</span>
         </div>
         <div class="landing__meta">
           <span>Data for FY 2025–26</span>
@@ -26,8 +28,8 @@
         <div class="overview-content">
           <div class="overview-statement">
             <h2 class="visually-hidden" id="overview-title">Ontario health-ministry published payments</h2>
-            <p class="overview-statement__lead">Together, the <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> spent <strong class="overview-statement__total">$97.4B<sup>*</sup></strong> in 2025–26.</p>
-            <p class="overview-statement__named"><strong>$65.2B</strong> is listed across <strong id="recipient-count">2,079 named organizations</strong>.</p>
+            <p class="overview-statement__lead">Ontario’s <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> paid <strong class="overview-statement__total">$97.4B<sup>*</sup></strong> across the positive payment entries published for 2025–26.</p>
+            <p class="overview-statement__named"><strong>$65.2B</strong> is listed across <strong id="recipient-count">2,078 named organizations</strong>.</p>
             <p class="overview-statement__unitemized"><strong>$32.3B (33.1%)</strong> was not itemized in published records.</p>
           </div>
           <section class="overview-recipient-chart" id="overview-recipient-chart" aria-label="Largest named recipients">
@@ -35,6 +37,7 @@
           </section>
         </div>
         <footer class="overview-notes">
+          <p class="embed-open-full"><a href="./" target="_top">Open the full project</a></p>
           <p class="network-net-note"><sup>*</sup><strong>$97.0B net</strong> after a −$421.0M Ontario Government Pharmacy adjustment. The adjustment is excluded from the forward flow because it is a signed reconciliation rather than a positive recipient payment.</p>
           <p class="network-source">Source: <a href="https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments">Ontario Public Accounts 2025–26 Detailed Schedules of Payments</a></p>
         </footer>

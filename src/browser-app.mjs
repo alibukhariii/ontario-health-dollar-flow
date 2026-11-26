@@ -347,7 +347,7 @@ async function loadNetwork() {
     pointer = await fetchJson('data/current.json');
     releaseBase = directoryOf(pointer.flow_v2.network_path);
     contract = await fetchJson(pointer.flow_v2.network_path);
-    elements.count.textContent = `${contract.named_payee_count.toLocaleString('en-CA')} named organizations`;
+    elements.count.textContent = `${contract.named_payee_count_excluding_ontario_health.toLocaleString('en-CA')} named organizations`;
     for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
       elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
     }
@@ -399,6 +399,18 @@ window.addEventListener('popstate', async () => {
 });
 
 const overview = document.querySelector('#page-overview');
+const embeddedView = new URLSearchParams(window.location.search).get('embed') === '1';
+if (embeddedView) {
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href]');
+    if (!link) return;
+    const targetUrl = new URL(link.href, window.location.href);
+    if (targetUrl.origin !== window.location.origin && link.target !== '_top') {
+      link.target = '_blank';
+      link.rel = 'noopener';
+    }
+  }, true);
+}
 if ('IntersectionObserver' in window) {
   const overviewObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) if (entry.isIntersecting) entry.target.classList.add('is-visible');

@@ -26,8 +26,13 @@ a { color:inherit; }
 .landing__copy { align-self:center; }
 .landing h1 { max-width:1500px; margin:0; font-family:var(--display); font-size:clamp(4.4rem,11.2vw,13rem); font-weight:900; letter-spacing:-.085em; line-height:.76; }
 .landing__copy p { max-width:760px; margin:clamp(2rem,5vh,4rem) 0 0 auto; font-size:clamp(1.1rem,1.75vw,1.55rem); line-height:1.35; }
-.landing__meta { display:flex; justify-content:space-between; align-items:end; gap:2rem; padding-right:clamp(2rem,4vw,5rem); font-size:clamp(1.3rem,1.6vw,1.64rem); line-height:1.25; }
+.landing__meta { display:flex; justify-content:space-between; align-items:end; gap:2rem; padding-right:clamp(2rem,4vw,5rem); font-size:clamp(1.1rem,1.75vw,1.55rem); line-height:1.35; }
 .landing__meta a { text-underline-offset:.2em; }
+.landing__scroll { display:block; margin-top:1.4rem; color:#d0d0cc; font-size:.9rem; font-weight:700; letter-spacing:.04em; }
+.embed-open-full { display:none; }
+html.is-embedded #page-landing { display:none; }
+html.is-embedded .embed-open-full { display:block; margin:0 0 1rem; font-size:.95rem; font-weight:700; }
+html.is-embedded .embed-open-full a { color:inherit; text-underline-offset:.2em; }
 .landing__rule { position:absolute; right:clamp(1.3rem,4vw,4.5rem); bottom:0; width:1px; height:17vh; background:#fff; transform-origin:top; animation:rule-in 1s .35s both; }
 
 /* Published-payment overview */
@@ -79,6 +84,12 @@ a { color:inherit; }
 .network-search input { width:100%; padding:.7rem 0; border:0; border-bottom:2px solid var(--ink); border-radius:0; background:transparent; font-size:1rem; }
 .network-filter select { width:100%; padding:.7rem 2rem .7rem 0; border:0; border-bottom:2px solid var(--ink); border-radius:0; background:linear-gradient(45deg,transparent 50%,#000 50%) right .65rem center/6px 6px no-repeat,linear-gradient(135deg,#000 50%,transparent 50%) right .3rem center/6px 6px no-repeat; appearance:none; font-size:1rem; }
 .network-guidance { width:min(920px,100%); margin:1.6rem auto .75rem; color:var(--ink); font-size:clamp(1.05rem,1.4vw,1.3rem); font-weight:700; line-height:1.4; text-align:center; }
+.taxonomy-note { width:min(920px,100%); margin:.25rem auto .75rem; color:var(--quiet); font-size:.95rem; line-height:1.45; text-align:center; }
+.intermediary-figures { margin:.8rem 0; padding-top:.7rem; border-top:1px solid var(--hairline); }
+.intermediary-figures summary { width:fit-content; cursor:pointer; font-weight:750; text-underline-offset:.18em; }
+.intermediary-figures p { margin:.7rem 0; }
+.recipient-source-links { display:grid; gap:.55rem; margin:.9rem 0; padding:.8rem 0; border-top:1px solid var(--hairline); font-size:.88rem; line-height:1.35; }
+.recipient-source-links a { color:inherit; text-underline-offset:.18em; }
 .search-results { position:absolute; z-index:20; top:100%; left:0; width:min(520px,90vw); max-height:390px; overflow:auto; border:2px solid var(--ink); background:#fff; box-shadow:8px 8px 0 var(--ink); }
 .search-results button { width:100%; display:flex; justify-content:space-between; gap:1rem; padding:.8rem; text-align:left; border:0; border-bottom:1px solid var(--hairline); background:#fff; cursor:pointer; }
 .search-results button:hover,.search-results button:focus-visible { color:#fff; background:var(--ink); }
@@ -292,6 +303,7 @@ a { color:inherit; }
   .landing h1 { font-size:clamp(3.6rem,18vw,7rem); }
   .landing__copy p { margin-left:0; }
   .landing__meta { display:grid; gap:.55rem; padding-right:2rem; }
+  .landing__scroll { margin-top:1rem; }
   .overview-page { overflow:visible; }
   .overview-content { grid-template-columns:1fr; gap:2.2rem; align-content:center; }
   .overview-statement p,.overview-chart__title { font-size:clamp(calc(1.35rem + 2px),calc(6vw + 2px),calc(2.2rem + 2px)); }
@@ -334,6 +346,10 @@ a { color:inherit; }
   .statement-bar { grid-template-columns:1fr; }
   .static-recipient header { grid-template-columns:1fr; }
   .static-recipient header > strong { margin-top:1rem; }
+}
+
+@media (max-width: 800px) {
+  .landing__meta { font-size:clamp(1.1rem,1.75vw,1.55rem); }
 }
 
 @media (prefers-reduced-motion: reduce) {

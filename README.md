@@ -68,6 +68,7 @@ Raw PDFs, OCR files, extraction candidates, private review records and personal 
 ## Documentation
 
 - [Methodology](docs/METHODOLOGY.md)
+- [Embed the visualization in a portfolio](docs/EMBED.md)
 - [Data dictionary](docs/DATA_DICTIONARY.md)
 - [Source ledger](docs/SOURCE_LEDGER.md)
 - [Limitations](docs/LIMITATIONS.md)
