@@ -1074,7 +1074,9 @@ def build_network_overview(
 
     intermediary_payloads = intermediary_payloads or {}
     ontario_health_payload = intermediary_payloads.get("ontario_health", {})
+    athome_payload = intermediary_payloads.get("ontario_health_athome", {})
     oh_groups = {str(row.get("group_id")): Decimal(str(row.get("amount_cad", "0"))) for row in ontario_health_payload.get("groups", [])}
+    athome_groups = {str(row.get("group_id")): Decimal(str(row.get("amount_cad", "0"))) for row in athome_payload.get("groups", [])}
     oh_public_accounts_amount = sum(
         (
             Decimal(str(row["published_payment_total_cad"]))
@@ -1088,8 +1090,12 @@ def build_network_overview(
         "ontario_health_reported_expense_total_cad": str(ontario_health_payload.get("reported_expense_total_cad", "0.00")),
         "ontario_health_passed_on_cad": money(oh_groups.get("passed_on", Decimal("0"))),
         "ontario_health_own_operations_cad": money(oh_groups.get("own_operations", Decimal("0"))),
+        "ontario_health_athome_reported_expense_total_cad": str(athome_payload.get("reported_expense_total_cad", "0.00")),
+        "ontario_health_athome_contracted_services_cad": money(athome_groups.get("contracted_services", Decimal("0"))),
+        "ontario_health_athome_own_operations_cad": money(athome_groups.get("own_operations", Decimal("0"))),
         "recipient_crosswalk_amount_cad": "0.00",
         "source_url": str(ontario_health_payload.get("source", {}).get("url") or ONTARIO_HEALTH_STATEMENT_URL),
+        "athome_source_url": str(athome_payload.get("source", {}).get("url") or ONTARIO_HEALTH_ATHOME_STATEMENT_URL),
         "explanation": (
             "Ontario Health is shown as an explanatory intermediary, not ranked as a recipient. "
             "Its audited transfers and operations are a separate reporting frame and are not added to the published-payment total."

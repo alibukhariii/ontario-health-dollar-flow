@@ -80,13 +80,14 @@ def _static_overview(network: dict[str, object]) -> str:
     intermediary = network.get("intermediary_note", {})
     intermediary_note = (
         '<aside class="recipient-coverage-note">'
-        '<p><strong>Ontario Health is not ranked as a recipient.</strong> '
-        f'Public Accounts records {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))} under Ontario Health. '
-        f'Its separate audited statements report {_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} passed onward and '
-        f'{_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} used for its operations, reconciling to '
-        f'{_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))}. '
-        'Those audited amounts are not added to the published-payment flow because no complete public recipient-level crosswalk links the records. '
-        f'<a href="{html.escape(str(intermediary.get("source_url", "")))}">Source: Ontario Health 2025–26 audited financial statements</a>.</p>'
+        '<p><strong>How intermediaries are treated.</strong> Ontario Health and Ontario Health atHome administer funding, but ministries can pay providers directly. '
+        'Ontario Health may therefore record the same funding as revenue and a transfer expense even when Public Accounts names the provider as the payee. '
+        f'Its {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in audited expenses—including '
+        f'{_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in provider and long-term-care transfers—and Ontario Health atHome’s '
+        f'{_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care overlap payments already shown in this diagram; they are not additional dollars. '
+        'Because no complete public recipient-by-recipient crosswalk exists, dotted lines show a documented intermediary role, not a separate amount. '
+        f'<a href="{html.escape(str(intermediary.get("source_url", "")))}">Ontario Health source</a>; '
+        f'<a href="{html.escape(str(intermediary.get("athome_source_url", "")))}">Ontario Health atHome source</a>.</p>'
         '</aside>'
     ) if intermediary else ""
     return f"""<article class="static-overview">

@@ -51,7 +51,7 @@ These are descriptive concentration measures. They do not measure efficiency, qu
 
 ## Intermediaries and financial profiles
 
-Ontario Health, Ontario Health atHome and other named intermediaries remain in the underlying payee data, but they do not appear as recipient bubbles or in the recipient ranking. Their Public Accounts amounts remain part of the $97.434 billion denominator and appear as program-level evidence stops. A dotted treatment on a recipient route indicates a documented intermediary role only; it carries no additional amount.
+Ontario Health, Ontario Health atHome and other named intermediaries remain in the underlying payee data, but they do not appear as recipient bubbles or in the recipient ranking. Their Public Accounts amounts remain part of the $97.434 billion denominator and appear as program-level evidence stops. Ontario Health can administer funding that a ministry pays directly to a provider, then recognize the same funding as revenue and transfer expense. Its audited transfer totals can therefore overlap provider payments in Public Accounts and must not be added to them. A dotted treatment on a recipient route indicates a documented intermediary role only; it carries no additional amount because no complete public recipient-by-recipient crosswalk is available.
 
 Ontario Health separately reported **$48.203 billion** in 2025–26 expenses: **$47.311 billion** passed onward and **$892.331 million** used for Ontario Health-run operations. These figures reconcile within Ontario Health’s audited statements, but they are not added to the Public Accounts payment flow because a complete public crosswalk to downstream recipients is unavailable.
 

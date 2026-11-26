@@ -13,9 +13,10 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
   await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
-  await expect(page.locator('#page-overview')).toContainText('$53.1B went to 2,078 named organizations.');
-  await expect(page.locator('#page-overview')).toContainText('$12.1B was published under intermediaries');
-  await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized.');
+  await expect(page.locator('#page-overview')).toContainText('$65.2B was itemized to named payees');
+  await expect(page.locator('#page-overview')).toContainText('$53.1B to 2,078 named organizations');
+  await expect(page.locator('#page-overview')).toContainText('$12.1B to intermediaries');
+  await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized in published records.');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
   await expect(page.locator('.overview-chart__axis-title')).toHaveText('Amount (billions)');
@@ -27,11 +28,12 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.funding-network [data-recipient-id]')).toHaveCount(24);
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$32.3B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$12.1B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health is not ranked as a recipient');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B passed onward');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$892.3M used for its operations');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries are treated');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('administer funding, but ministries can pay providers directly');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$48.2B in audited expenses');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in provider and long-term-care transfers');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('overlap payments already shown in this diagram');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health atHome');
   await expect(page.locator('.coverage-split__itemized')).toHaveCount(0);
   await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
   await expect(page.locator('.size-key')).toHaveCount(0);
@@ -39,6 +41,9 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.funding-network .orbit')).toHaveCount(0);
   await expect(page.locator('.funding-network .orbit-label')).toHaveCount(0);
   await expect(page.locator('.network-legend')).toContainText('Ministry of Long-Term Care');
+  await expect(page.locator('.network-legend')).not.toContainText('$8.5B');
+  await expect(page.locator('.recipient-node__external-label')).not.toHaveCount(0);
+  await expect(page.locator('.recipient-node__label-leader')).not.toHaveCount(0);
 });
 
 test('overview concentration bars open the selected recipient on the network page', async ({ page }) => {
@@ -95,8 +100,10 @@ test('search reveals recipient routes and explains Ontario Health without rankin
   await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
   await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
-  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health role documented');
+  await expect(page.locator('.network-tooltip')).not.toContainText('Ontario Health');
   await expect(page.locator('#active-routes .active-route--administered')).not.toHaveCount(0);
+  await expect(page.locator('.program-node.is-route-active')).not.toHaveCount(0);
+  await expect(page.locator('.category-node.is-route-active')).not.toHaveCount(0);
   await expect(page.locator('.network-tooltip__outflows')).toHaveCount(0);
   await expect(page).toHaveURL(/\/recipient\/[^/]+\/$/);
   await expect(page.locator('[data-close-tooltip]')).toBeVisible();

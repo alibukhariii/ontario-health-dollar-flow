@@ -111,6 +111,20 @@ function setActiveNode(recipientId) {
   }
   const svg = elements.canvas.querySelector('.funding-network');
   if (svg) svg.dataset.focusScale = scale;
+  if (!recipientId) {
+    for (const node of elements.canvas.querySelectorAll('.is-route-active')) node.classList.remove('is-route-active');
+  }
+}
+
+function setActiveConnections({ programKeys = [], categoryIds = [] } = {}) {
+  const programs = new Set(programKeys);
+  const categories = new Set(categoryIds);
+  for (const node of elements.canvas.querySelectorAll('[data-program-key]')) {
+    node.classList.toggle('is-route-active', programs.has(node.dataset.programKey));
+  }
+  for (const node of elements.canvas.querySelectorAll('[data-category-id]')) {
+    node.classList.toggle('is-route-active', categories.has(node.dataset.categoryId));
+  }
 }
 
 function applyRecipientTypeFilter() {
@@ -174,6 +188,7 @@ async function focusRecipient(recipientId, { pin = false, history = false } = {}
   const activeRoutes = elements.canvas.querySelector('#active-routes');
   if (activeRoutes) activeRoutes.innerHTML = focused.routes;
   setActiveNode(focused.visualRecipientId);
+  setActiveConnections(focused);
   elements.tooltip.innerHTML = `${focused.tooltip}${renderOutflows(intermediary)}`;
   elements.tooltip.hidden = false;
   elements.tooltip.dataset.recipientId = recipientId;

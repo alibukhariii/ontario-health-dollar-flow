@@ -94,7 +94,7 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   assert.match(html, /recipient-node--intermediary/);
   assert.match(html, /Ministry of Health/);
   assert.match(html, /Ministry of Long-Term Care/);
-  assert.match(html, /\$25.*stops before the named-recipient layer/i);
+  assert.doesNotMatch(html, /recipient-coverage-note__amounts/);
   assert.doesNotMatch(html, /Source note/);
   assert.doesNotMatch(html, /coverage-split__itemized/);
   assert.doesNotMatch(html, /coverage-split__aggregate/);
@@ -242,8 +242,11 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
       ontario_health_reported_expense_total_cad: '100.00',
       ontario_health_passed_on_cad: '80.00',
       ontario_health_own_operations_cad: '20.00',
+      ontario_health_athome_contracted_services_cad: '12.00',
+      ontario_health_athome_own_operations_cad: '3.00',
       recipient_crosswalk_amount_cad: '0.00',
       source_url: 'https://example.test/ontario-health-statements',
+      athome_source_url: 'https://example.test/athome-statements',
     },
   };
   const layout = network.layoutFundingNetwork(contract, {
@@ -257,9 +260,12 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
   assert.match(html, /Published under an intermediary/);
   assert.match(html, /\$40/);
   assert.match(html, /\$80/);
-  assert.match(html, /\$20/);
-  assert.match(html, /Ontario Health is not ranked as a recipient/);
+  assert.match(html, /How intermediaries are treated/);
+  assert.match(html, /Ontario Health atHome/);
+  assert.match(html, /\$12/);
+  assert.match(html, /not additional dollars/);
   assert.match(html, /https:\/\/example\.test\/ontario-health-statements/);
+  assert.match(html, /https:\/\/example\.test\/athome-statements/);
 });
 
 test('recipient route uses a dotted explanatory treatment when Ontario Health has a documented role', () => {
@@ -280,8 +286,10 @@ test('recipient route uses a dotted explanatory treatment when Ontario Health ha
   const result = network.renderRecipientFocus(layout, payload);
 
   assert.match(result.routes, /active-route--administered/);
-  assert.match(result.tooltip, /Ontario Health role documented/);
-  assert.match(result.tooltip, /amount is not separately published/);
+  assert.match(result.routes, /data-intermediary="Ontario Health"/);
+  assert.doesNotMatch(result.tooltip, /Ontario Health/);
+  assert.deepEqual(result.categoryIds, ['hospital_care']);
+  assert.deepEqual(result.programKeys, ['Ministry Of Health␟hospital_care␟Operations']);
 });
 
 test('formatters use one decimal place and normalize display casing', () => {
