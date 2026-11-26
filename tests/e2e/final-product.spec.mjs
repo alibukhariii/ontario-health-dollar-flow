@@ -29,10 +29,10 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries fit in');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$12.0B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('audited statements report $48.2B in expenses');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers to providers and long-term care');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('reports $48.2B in expenses');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$35.3B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('figures overlap and should not be added together');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('views overlap and are not amounts to add together');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health atHome');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Methodology');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Report a data error');
