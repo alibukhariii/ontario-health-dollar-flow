@@ -88,7 +88,7 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
   await page.locator('[data-program-focus-back]').click();
   await page.locator('[data-program-focus-back]').click();
 
-  await page.locator('[data-category-id="ministry_operations_and_other_published_payments"]').click();
+  await page.locator('[data-category-id="ministry_operations_and_other_published_payments"] circle').click();
   await expect(page.locator('.program-focus-list__item')).toHaveCount(16);
   await expect(page.locator('.program-focus-list')).toContainText('Other Payments');
   await page.locator('[data-program-focus-back]').click();
