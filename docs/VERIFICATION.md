@@ -53,7 +53,7 @@ Run all automated checks with `npm test`, then build with `npm run build`. The G
 
 - 32 Python data, privacy, identity, build and public-release tests passed.
 - 67 JavaScript model and rendering tests passed, including a regression check that recipient search and the diagram use the same 24-recipient window.
-- 28 end-to-end browser checks passed across Chromium, Firefox, WebKit and a reduced-motion mobile viewport in the previous complete run; four device-specific checks were intentionally skipped outside their applicable viewport. The final browser rerun stalled before launching, so the newly added St. Thomas search browser test is not yet verified in a browser.
+- 33 end-to-end browser checks passed across Chromium, Firefox, WebKit and the mobile viewport in the final GitHub Actions run; seven device-specific checks were skipped outside their applicable viewport. The St. Thomas search regression and structured-table navigation passed.
 - Two independent reader tasks passed. A third review found the long-list search bug, which is fixed and covered by the model test. Two further agent browser tasks stalled; five-reader sign-off is therefore incomplete.
 - A static check verified all 2,076 recipient pages, route payloads, source profiles and route-total reconciliations. No missing links or inconsistent route sums were found.
 - The browser tests covered initial loading, 14-category rendering, global ranking, program navigation, recipient routes, financial-profile source links, complete-universe search, structured alternatives and page-level overflow.
@@ -64,4 +64,4 @@ Run all automated checks with `npm test`, then build with `npm run build`. The G
 - DuckDB: `ontario-health-dollar-flow-2025-26.duckdb` — SHA-256 `d281499e431cdaa73c952cf61cc41235c6b0ff5cf8ea652f04a7f299ee25dbb4`.
 - CSV archive: `ontario-health-dollar-flow-2025-26-csv.zip` — SHA-256 `0e939ba01b3aec90fca3c959b18ed34828e34ac33a3a146935d824a56875aa9d`.
 
-Data reconciliation, privacy, identity decisions and source-lineage checks pass. The interface meets the prior cross-browser run; however, the final recipient-search browser regression and five-reader sign-off still need confirmation. The limitations in [LIMITATIONS.md](LIMITATIONS.md) remain applicable.
+Data reconciliation, privacy, identity decisions and source-lineage checks pass. The final GitHub Actions build and cross-browser suite passed, and GitHub Pages deployed the release. Two independent reader tasks passed; a third review exposed a recipient-search bug that was fixed and browser-tested. Two further reader sessions could not complete, so the five-reader sign-off remains incomplete. The limitations in [LIMITATIONS.md](LIMITATIONS.md) remain applicable.
