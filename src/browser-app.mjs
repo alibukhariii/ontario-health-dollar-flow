@@ -2,6 +2,7 @@ import {
   escapeHtml,
   displayLabel,
   formatCad,
+  recipientOffsetForIndex,
   layoutFundingNetwork,
   renderFundingNetwork,
   renderNetworkTable,
@@ -145,8 +146,7 @@ function renderCurrentNetwork() {
 function showRecipientInZoom(recipientId) {
   const index = contract.recipients.findIndex((row) => row.recipient_id === recipientId);
   if (index < 0) return false;
-  const pageSize = contract.displayed_recipient_count ?? 50;
-  recipientOffset = Math.floor(index / pageSize) * pageSize;
+  recipientOffset = recipientOffsetForIndex(index, contract);
   focusedCategoryId = null;
   focusedProgramKey = null;
   renderCurrentNetwork();
@@ -347,7 +347,7 @@ async function loadNetwork() {
     pointer = await fetchJson('data/current.json');
     releaseBase = directoryOf(pointer.flow_v2.network_path);
     contract = await fetchJson(pointer.flow_v2.network_path);
-    elements.count.textContent = `${contract.named_recipient_count.toLocaleString('en-CA')} named organizations`;
+    elements.count.textContent = `${contract.named_payee_count.toLocaleString('en-CA')} named organizations`;
     for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
       elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
     }

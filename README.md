@@ -22,12 +22,12 @@ The 2025–26 release follows **$97.434 billion in positive payments** published
 Three analysis-ready datasets are published under [`data/derived`](data/derived):
 
 - **Recipient funding routes:** 3,926 ministry → purpose → official program → named recipient routes with amounts and source lineage.
-- **Organization and alias index:** 2,084 published aliases attached to 2,081 ranked payees, with organization type and identity status.
+- **Organization and alias index:** 2,084 published aliases attached to 2,079 ranked payees after reviewed alias resolution, with organization type and identity status.
 - **Harmonized financial statements:** 4,995 approved, source-native hospital and Ontario Health financial observations with page-level lineage.
 
 These files are derived from public records, but the connected routes, reviewed identities and harmonized statement observations are project-created. See the [dataset guide](data/README.md) for schemas, limitations and reproduction instructions.
 
-The downloadable route and alias datasets retain all 2,081 named payees, including intermediaries, for reproducibility. The public recipient diagram ranks 2,078 named non-intermediary organizations. It keeps the **$12.070 billion** published under named intermediaries separate from the **$53.114 billion** assigned to named organizations and the **$32.251 billion** that was not itemized. These three parts reconcile to the $97.434 billion positive-payment denominator. Ontario Health can also administer funding that ministries pay directly to providers, so its audited transfer expenses can overlap Public Accounts payments already assigned to those providers. The interface uses dotted lines to show this role without adding the overlapping amount again.
+The downloadable route and alias datasets retain all 2,079 named payees, including intermediaries, for reproducibility. The public recipient diagram ranks 2,076 named non-intermediary organizations. It keeps the **$12.070 billion** published under named intermediaries separate from the **$53.114 billion** assigned to named organizations and the **$32.251 billion** that was not itemized. These three parts reconcile to the $97.434 billion positive-payment denominator. Ontario Health can also administer funding that ministries pay directly to providers, so its audited transfer expenses can overlap Public Accounts payments already assigned to those providers. The interface uses dotted lines to show this role without adding the overlapping amount again.
 
 The main visual does not use the $97.013 billion net figure, the −$421.011 million pharmacy adjustment or the $92.286 billion ministry-expense frame. Those figures are documented in [the methodology](docs/METHODOLOGY.md).
 
@@ -72,10 +72,12 @@ Raw PDFs, OCR files, extraction candidates, private review records and personal 
 - [Source ledger](docs/SOURCE_LEDGER.md)
 - [Limitations](docs/LIMITATIONS.md)
 - [Verification report](docs/VERIFICATION.md)
+- [Identity review](docs/IDENTITY_REVIEW.md)
+- [Correction policy](docs/CORRECTIONS.md)
 - [How to cite](CITATION.cff)
 - [Third-party dependency notices](THIRD_PARTY_NOTICES.md)
 - [CycloneDX software bill of materials](sbom.cdx.json)
 
 ## Licences
 
-Original code is available under the [MIT License](LICENSE). Original documentation and project-created crosswalks are available under [CC BY 4.0](LICENSE-DATA.md). Third-party source material remains subject to its original terms and is linked rather than redistributed. Runtime and test dependencies are listed in [the third-party notices](THIRD_PARTY_NOTICES.md) and [SBOM](sbom.cdx.json).
+Original code is available under the [MIT License](LICENSE). Original documentation and project-created crosswalks are available under [CC BY 4.0](LICENSE-DATA.md). Ontario Public Accounts is governed by the Ontario.ca Terms of Use, not the Open Government Licence; required attribution and other third-party source terms are documented in [the data and source notice](LICENSE-DATA.md). Runtime and test dependencies are listed in [the third-party notices](THIRD_PARTY_NOTICES.md) and [SBOM](sbom.cdx.json).

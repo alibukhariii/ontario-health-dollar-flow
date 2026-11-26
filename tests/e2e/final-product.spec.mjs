@@ -13,9 +13,8 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
   await expect(page.locator('#page-overview')).toContainText('Together, the Ministry of Health and Ministry of Long-Term Care spent $97.4B* in 2025–26.');
-  await expect(page.locator('#page-overview')).toContainText('$65.2B was itemized to named payees');
-  await expect(page.locator('#page-overview')).toContainText('$53.1B to 2,078 named organizations');
-  await expect(page.locator('#page-overview')).toContainText('$12.1B to intermediaries');
+  await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,079 named organizations');
+  await expect(page.locator('#page-overview')).not.toContainText('$12.1B');
   await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized in published records.');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
@@ -29,11 +28,15 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.recipient-node--smaller')).toHaveAttribute('aria-label', /smaller recipients/);
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries are treated');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('administer funding, but ministries can pay providers directly');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$48.2B in audited expenses');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in provider and long-term-care transfers');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('overlap payments already shown in this diagram');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$12.0B');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('audited statements report $48.2B in expenses');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers to providers and long-term care');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('$35.3B');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('figures overlap and should not be added together');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health atHome');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Methodology');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Report a data error');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Corrections');
   await expect(page.locator('.coverage-split__itemized')).toHaveCount(0);
   await expect(page.locator('.coverage-split__aggregate')).toHaveCount(0);
   await expect(page.locator('.size-key')).toHaveCount(0);
@@ -44,6 +47,10 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.network-legend')).not.toContainText('$8.5B');
   await expect(page.locator('.recipient-node__external-label')).not.toHaveCount(0);
   await expect(page.locator('.recipient-node__label-leader')).not.toHaveCount(0);
+  await expect(page.locator('.network-guidance')).toBeVisible();
+  const guidanceBeforeScale = await page.locator('.network-guidance, .network-scale').evaluateAll((nodes) => nodes.map((node) => node.className));
+  expect(guidanceBeforeScale[0]).toContain('network-guidance');
+  await expect(page.getByRole('link', { name: 'View project and data on GitHub' })).toHaveAttribute('href', /github\.com\/alibukhariii\/ontario-health-dollar-flow/);
 });
 
 test('overview concentration bars open the selected recipient on the network page', async ({ page }) => {
@@ -102,6 +109,10 @@ test('search reveals recipient routes and explains Ontario Health without rankin
   await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
   await expect(page.locator('.network-tooltip')).not.toContainText('Ontario Health');
   await expect(page.locator('#active-routes .active-route--administered')).not.toHaveCount(0);
+  const renderedRouteCount = await page.locator('#active-routes .active-route').count();
+  const listedRouteCount = await page.locator('.network-tooltip > ol > li, .network-tooltip__more ol > li').count();
+  expect(renderedRouteCount).toBe(listedRouteCount);
+  await expect(page.locator('.funding-network .category-program-edges')).toHaveCSS('opacity', '0');
   await expect(page.locator('.program-node.is-route-active')).not.toHaveCount(0);
   await expect(page.locator('.category-node.is-route-active')).not.toHaveCount(0);
   await expect(page.locator('.network-tooltip__outflows')).toHaveCount(0);
@@ -119,6 +130,10 @@ test('mobile uses an expandable list instead of a horizontally scrolling radial 
   await expect(page.locator('.overview-chart__name').first()).toHaveCSS('white-space', 'normal');
   await page.locator('.mobile-category').first().locator('summary').click();
   await expect(page.locator('.mobile-program').first()).toBeVisible();
+  await page.locator('#recipient-search').fill('University Health Network');
+  await page.locator('[data-search-recipient]').filter({ hasText: 'University Health Network' }).first().click();
+  await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
+  await expect(page.locator('.network-tooltip')).toContainText('Operation of Hospitals');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
@@ -134,11 +149,45 @@ test('search reaches a resolved provider and opens its financial profile', async
   await expect(page.locator('.statement-source a')).toHaveAttribute('href', /^https?:\/\//);
 });
 
+test('search focuses a recipient beyond the first 24 without loading an undefined route', async ({ page, request }) => {
+  const pointer = await (await request.get('/data/current.json')).json();
+  const network = await (await request.get(`/${pointer.flow_v2.network_path}`)).json();
+  const stegh = network.recipients.find((row) => /st\.?\s*thomas.*elgin/i.test(row.label));
+  expect(stegh).toBeTruthy();
+  expect(network.recipients.findIndex((row) => row.recipient_id === stegh.recipient_id)).toBeGreaterThan(23);
+
+  await openNetwork(page);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.locator('#recipient-search').fill(stegh.label);
+  await page.locator('[data-search-recipient]').filter({ hasText: stegh.label }).first().click();
+  await expect(page.locator('.network-tooltip')).toContainText(stegh.label);
+  await expect(page.locator('.network-tooltip')).not.toContainText('undefined');
+  expect(errors).toEqual([]);
+});
+
 test('the page keeps horizontal overflow inside the network viewport', async ({ page }) => {
   await openNetwork(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await expect(page.locator('.network-table')).toBeAttached();
+});
+
+test('keyboard and structured alternatives support the same exploration task', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium');
+  await openNetwork(page);
+  const category = page.locator('[data-category-id="hospital_care"]');
+  await category.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.program-focus-status')).toContainText('Hospital care');
+  const program = page.locator('[data-program-key]').filter({ has: page.locator('.program-node__index') }).first();
+  await program.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.scale-step--recipients')).toHaveAttribute('aria-current', 'step');
+
+  await page.locator('.network-table > summary').click();
+  await expect(page.locator('.network-table table').first().locator('tbody tr')).toHaveCount(14);
+  await expect(page.locator('.network-table a')).toHaveAttribute('href', 'recipients/');
 });
 
 test('recipient deep links contain useful HTML when JavaScript is disabled', async ({ browser, request, baseURL }) => {

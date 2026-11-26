@@ -10,6 +10,15 @@ const MOH = 'Ministry Of Health';
 const MLTC = 'Ministry Of Long-Term Care';
 const SMALLER_ID = '__smaller_recipients__';
 
+export function recipientPageSize(contract) {
+  return Math.min(Number(contract.displayed_recipient_count) || MAX_VISIBLE_RECIPIENTS, MAX_VISIBLE_RECIPIENTS);
+}
+
+export function recipientOffsetForIndex(index, contract) {
+  const pageSize = recipientPageSize(contract);
+  return Math.floor(Math.max(0, Number(index) || 0) / pageSize) * pageSize;
+}
+
 export function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -209,7 +218,7 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
       return recipient ? { ...recipient, global_amount_cad: recipient.amount_cad, amount_cad: amount, program_amount_cad: amount } : null;
     }).filter(Boolean).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad) || Number(a.global_rank) - Number(b.global_rank))
     : contract.recipients;
-  const pageSize = Math.min(contract.displayed_recipient_count ?? MAX_VISIBLE_RECIPIENTS, MAX_VISIBLE_RECIPIENTS);
+  const pageSize = recipientPageSize(contract);
   const offset = Math.max(0, Math.min(Number(recipientOffset) || 0, Math.max(0, recipientUniverse.length - 1)));
   const recipientGroup = recipientUniverse.slice(offset);
   const displayed = recipientGroup.slice(0, pageSize);
@@ -334,9 +343,10 @@ export function renderFundingNetwork(layout, contract) {
     const recipient = layout.recipientById.get(route.recipient_id);
     if (!program || !recipient) return '';
     const intermediary = recipient.is_intermediary ? ' network-edge--intermediary' : '';
+    const administered = route.intermediary_context ? ' network-edge--administered' : '';
     const focused = layout.focusedProgramKey && route.program_key === layout.focusedProgramKey ? ' is-selected' : '';
     const context = focused ? '' : ' is-context';
-    return lineBetween(program, recipient, `network-edge network-edge--recipient${intermediary}${focused}${context}`,
+    return lineBetween(program, recipient, `network-edge network-edge--recipient${intermediary}${administered}${focused}${context}`,
       `data-target_type="${escapeHtml(route.target_type)}" stroke-width="${routeWidth(route.amount_cad, layout.recipientScaleTotal, { maximum: 13 }).toFixed(2)}" marker-end="url(#arrow-recipient)"`);
   }).join('');
   const gradients = layout.categories.filter((row) => row.colour === 'mixed').map((category) => {
@@ -378,7 +388,7 @@ export function renderFundingNetwork(layout, contract) {
     : '';
   const zoomBack = layout.recipientOffset > 0
     ? `<button type="button" data-recipient-zoom-back="${Math.max(0, layout.recipientOffset - layout.recipientPageSize)}">Back one recipient level</button>` : '';
-  const zoomStatus = `<div class="recipient-zoom-status network-view-status">${zoomBack}<span>Ranks ${layout.recipientWindowStart}–${layout.recipientWindowEnd} of ${layout.recipientCount.toLocaleString('en-CA')} · ${formatCad(layout.recipientScaleTotal)} in this recipient view</span></div>`;
+  const zoomStatus = `<div class="recipient-zoom-status network-view-status">${zoomBack}<span>Ranks ${layout.recipientWindowStart}–${layout.recipientWindowEnd} of ${layout.recipientCount.toLocaleString('en-CA')} named organizations</span></div>`;
   const note = contract.intermediary_note ?? {};
   const sourceLink = note.source_url
     ? `<a href="${escapeHtml(note.source_url)}">Ontario Health’s 2025–26 audited statements</a>`
@@ -387,9 +397,9 @@ export function renderFundingNetwork(layout, contract) {
     ? `<a href="${escapeHtml(note.athome_source_url)}">Ontario Health atHome’s 2025–26 audited statements</a>`
     : 'Ontario Health atHome’s 2025–26 audited statements';
   const coverageNote = note.source_url
-    ? `<aside class="recipient-coverage-note"><p><strong>How intermediaries are treated.</strong> Ontario Health and Ontario Health atHome administer funding, but ministries can pay providers directly. Ontario Health may therefore record the same funding as revenue and a transfer expense even when Public Accounts names the provider as the payee. Its ${formatCad(note.ontario_health_reported_expense_total_cad)} in audited expenses—including ${formatCad(note.ontario_health_passed_on_cad)} in provider and long-term-care transfers—and Ontario Health atHome’s ${formatCad(note.ontario_health_athome_contracted_services_cad)} in contracted care overlap payments already shown in this diagram; they are not additional dollars. Because no complete public recipient-by-recipient crosswalk exists, dotted lines show a documented intermediary role, not a separate amount. Sources: ${sourceLink}; ${athomeSourceLink}.</p></aside>`
+    ? `<aside class="recipient-coverage-note"><p><strong>How intermediaries are treated.</strong> Public Accounts lists ${formatCad(note.ontario_health_public_accounts_amount_cad)} with Ontario Health as the payee. Ontario Health’s audited statements report ${formatCad(note.ontario_health_reported_expense_total_cad)} in expenses, including ${formatCad(note.ontario_health_passed_on_cad)} in transfers to providers and long-term care and ${formatCad(note.ontario_health_own_operations_cad)} for its own operations. The ${formatCad(note.ontario_health_transfer_gap_vs_public_accounts_cad)} difference reflects funding Ontario Health oversees that may be paid directly by ministries; it does not identify additional named-recipient amounts. Ontario Health atHome separately reports ${formatCad(note.ontario_health_athome_reported_expense_total_cad)} in expenses, including ${formatCad(note.ontario_health_athome_contracted_services_cad)} in contracted care. These published figures overlap and should not be added together. Public records do not show the exact intermediary share of each recipient’s payment. A dotted route marks a documented intermediary role; its width represents the recipient payment already counted in the diagram. Sources: ${sourceLink}; ${athomeSourceLink}.</p><nav class="evidence-links" aria-label="Evidence and project information"><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/METHODOLOGY.md">Methodology</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/LIMITATIONS.md">Limitations</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/tree/main/data/derived">Download data</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/issues/new?template=data-error.yml">Report a data error</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/CORRECTIONS.md">Corrections</a></nav><p class="source-attribution">Payment data: Ontario Public Accounts 2025–26, © King’s Printer for Ontario, used under the Ontario.ca Terms of Use. This project is not endorsed by the Government of Ontario.</p></aside>`
     : '';
-  const scaleGuide = `<div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
+  const scaleGuide = `<p class="network-guidance">Hover, focus or search to reveal every published route into an organization.</p><div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
   const recipientRows = layout.recipients.map((recipient) => recipientNode({ ...recipient, isContext: layout.focusScale !== 'recipients', isScaleActive: layout.focusScale === 'recipients' })).join('');
   return `${scaleGuide}${focusedStatus}${programFocusList}${intermediaryStop}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-140 -160 ${layout.width + 280} ${layout.height + 320}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen funding purposes connect to published programs and a zoomable view of named recipients. The selected scale is emphasized while the other system layers remain visible as context.</desc><defs>${gradients}<pattern id="vendor-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="8" height="8" fill="#fff"/><line x1="0" y1="0" x2="0" y2="8" stroke="#c8c8c3" stroke-width="2"/></pattern><marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--ink)"/></marker><marker id="arrow-label" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker></defs><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g></svg><div class="network-footer"><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Documented intermediary role in transferring funding; no published recipient-level amount</span><span><i class="legend-outline legend-outline--provider"></i>Provider</span><span><i class="legend-outline legend-outline--government"></i>Government or municipality</span><span><i class="legend-outline legend-outline--vendor"></i>Vendor</span></div>${coverageNote}</div>${renderMobileNetwork(contract)}`;
 }
@@ -401,20 +411,21 @@ export function renderRecipientFocus(layout, payload) {
   const paths = routes.map((route) => {
     const program = layout.programByKey.get(`${route.ministry}␟${route.category_id}␟${route.program_label}`);
     if (!program) return '';
-    const amountLine = lineBetween(program, recipient, 'active-route',
-      `stroke-width="${routeWidth(route.amount_cad, payload.published_payment_total_cad, { maximum: 13 }).toFixed(2)}" marker-end="url(#arrow-focus)"`);
-    const intermediaryTreatment = route.intermediary_context
+    const width = routeWidth(route.amount_cad, payload.published_payment_total_cad, { maximum: 13 }).toFixed(2);
+    return route.intermediary_context
       ? lineBetween(program, recipient, 'active-route active-route--administered',
-        `stroke-width="2" transform="translate(4 4)" data-intermediary="${escapeHtml(route.intermediary_context.label)}"`)
-      : '';
-    return `${amountLine}${intermediaryTreatment}`;
+        `stroke-width="${width}" marker-end="url(#arrow-focus)" data-intermediary="${escapeHtml(route.intermediary_context.label)}"`)
+      : lineBetween(program, recipient, 'active-route',
+        `stroke-width="${width}" marker-end="url(#arrow-focus)"`);
   }).join('');
   const total = Number(payload.published_payment_total_cad);
-  const rows = routes.slice(0, 8).map((route) => {
+  const routeRow = (route) => {
     const share = total ? Number(route.amount_cad) / total * 100 : 0;
     return `<li><i class="ministry-chip ministry-chip--${ministryClass(route.ministry)}" aria-label="${escapeHtml(displayLabel(route.ministry))}"></i><span><b>${escapeHtml(displayLabel(route.program_label))}</b><small>${escapeHtml(displayLabel(route.category_label))}</small><span class="route-share"><i style="width:${share.toFixed(2)}%"></i></span></span><strong>${formatCad(route.amount_cad)}<small>${share.toFixed(1)}%</small></strong></li>`;
-  }).join('');
-  const more = routes.length > 8 ? `<p class="network-tooltip__more">+ ${routes.length - 8} more published routes</p>` : '';
+  };
+  const rows = routes.slice(0, 8).map(routeRow).join('');
+  const moreRoutes = routes.slice(8);
+  const more = moreRoutes.length ? `<details class="network-tooltip__more"><summary>Show ${moreRoutes.length} more published routes</summary><ol start="9">${moreRoutes.map(routeRow).join('')}</ol></details>` : '';
   const tooltip = `<button type="button" class="network-tooltip__close" data-close-tooltip aria-label="Close recipient details">Close</button><div class="network-tooltip__heading"><span>#${escapeHtml(payload.global_rank ?? recipient.global_rank)} · ${escapeHtml(payload.payee_type)}</span><h3>${escapeHtml(displayLabel(payload.display_label ?? payload.published_label))}</h3><strong>${formatCad(payload.published_payment_total_cad)}</strong></div><ol>${rows}</ol>${more}${payload.profile_path ? '<button type="button" data-open-profile>View reported revenue and expenses</button>' : ''}`;
   return {
     routes: paths,

@@ -1,8 +1,8 @@
 # Verification report
 
 Release: 2025–26.1  
-Build ID: `e3c02059f840f1e84797`
-Status: **Passed for publication on 2026-11-25**
+Build ID: `f215bad0a9314e9d2b1a`
+Status: **Data and interface fixes verified; final human sign-off remains partial on 2026-11-25**
 
 ## Verified results
 
@@ -11,7 +11,7 @@ Status: **Passed for publication on 2026-11-25**
 - Named non-intermediary organizations shown in the recipient layer: **$53,113,532,604**.
 - Named intermediaries retained as evidence stops: **$12,069,601,884**.
 - Not itemized to a public recipient: **$32,250,847,388 (33.10%)**.
-- Fourteen categories, 74 source-native programs, 2,081 named payees in the reproducible data and 2,078 organizations in the recipient ranking.
+- Fourteen categories, 74 source-native programs, 2,079 named payees after reviewed alias resolution, and 2,076 non-intermediary organizations in the recipient ranking.
 - In the broader all-payee dataset, 22 payees reach 50% and 110 payees reach 80% of named-payee dollars. The public recipient view separately excludes intermediaries.
 - Every generated payee path exists and every payee total equals its incoming routes.
 - All 135 published financial profiles contain a direct source URL.
@@ -52,14 +52,16 @@ Run all automated checks with `npm test`, then build with `npm run build`. The G
 ## Test record
 
 - 32 Python data, privacy, identity, build and public-release tests passed.
-- 65 JavaScript model and rendering tests passed.
-- 28 end-to-end browser checks passed across Chromium, Firefox, WebKit and a reduced-motion mobile viewport; four device-specific checks were intentionally skipped outside their applicable viewport.
+- 67 JavaScript model and rendering tests passed, including a regression check that recipient search and the diagram use the same 24-recipient window.
+- 28 end-to-end browser checks passed across Chromium, Firefox, WebKit and a reduced-motion mobile viewport in the previous complete run; four device-specific checks were intentionally skipped outside their applicable viewport. The final browser rerun stalled before launching, so the newly added St. Thomas search browser test is not yet verified in a browser.
+- Two independent reader tasks passed. A third review found the long-list search bug, which is fixed and covered by the model test. Two further agent browser tasks stalled; five-reader sign-off is therefore incomplete.
+- A static check verified all 2,076 recipient pages, route payloads, source profiles and route-total reconciliations. No missing links or inconsistent route sums were found.
 - The browser tests covered initial loading, 14-category rendering, global ranking, program navigation, recipient routes, financial-profile source links, complete-universe search, structured alternatives and page-level overflow.
 - A rendered desktop review identified and resolved three material presentation/accessibility issues before this report was closed: a clipped MLTC label, a rounded `$97B` headline instead of `$97.4B`, and buttons incorrectly exposed as list items.
 
 ## Release artifacts
 
-- DuckDB: `ontario-health-dollar-flow-2025-26.duckdb` — SHA-256 `1ff751c26051469b638ca0a6013231ab8c1598253caf409cb3429e81f50147be`.
-- CSV archive: `ontario-health-dollar-flow-2025-26-csv.zip` — SHA-256 `ae7dca916d9f0bf951b0173797986f996efa400b1636722ca68482384f998740`.
+- DuckDB: `ontario-health-dollar-flow-2025-26.duckdb` — SHA-256 `d281499e431cdaa73c952cf61cc41235c6b0ff5cf8ea652f04a7f299ee25dbb4`.
+- CSV archive: `ontario-health-dollar-flow-2025-26-csv.zip` — SHA-256 `0e939ba01b3aec90fca3c959b18ed34828e34ac33a3a146935d824a56875aa9d`.
 
-No material numerical, identity, privacy, source-lineage, interaction or cross-browser defect remains in this release. The limitations in [LIMITATIONS.md](LIMITATIONS.md) remain applicable.
+Data reconciliation, privacy, identity decisions and source-lineage checks pass. The interface meets the prior cross-browser run; however, the final recipient-search browser regression and five-reader sign-off still need confirmation. The limitations in [LIMITATIONS.md](LIMITATIONS.md) remain applicable.

@@ -42,7 +42,15 @@ class CoreDatasetTests(unittest.TestCase):
             self.assertTrue(all(row["source_url"].startswith("https://") for row in routes))
 
             self.assertEqual(len(organizations), 2084)
-            self.assertEqual(len({row["payee_id"] for row in organizations}), 2081)
+            self.assertEqual(len({row["payee_id"] for row in organizations}), 2079)
+            st_thomas = [row for row in organizations if "Thomas-Elgin General Hospital" in row["published_label"]]
+            self.assertEqual(len({row["payee_id"] for row in st_thomas}), 1)
+            shoppers = [row for row in organizations if row["published_label"] in {"Shoppers Drug Mart Inc", "Shoppers Drug Mart Inc."}]
+            self.assertEqual(len({row["payee_id"] for row in shoppers}), 1)
+            specialty = next(row for row in organizations if row["published_label"] == "Shoppers Drugmart Specialty Health Network")
+            self.assertNotEqual(specialty["payee_id"], shoppers[0]["payee_id"])
+            google = [row for row in organizations if row["published_label"] in {"Google Canada Corporation", "Google Canada Corporation*"}]
+            self.assertEqual(len({row["payee_id"] for row in google}), 2)
             self.assertEqual(organizations[0]["display_label"], "Ontario Health")
             self.assertEqual(organizations[0]["global_rank"], "1")
 

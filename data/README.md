@@ -10,7 +10,7 @@ All amounts are nominal Canadian dollars. The current release covers fiscal year
 
 **Grain:** one supported ministry → funding purpose → official program → named recipient route.
 
-This is the analytical route dataset behind the interactive diagram. It contains 3,926 routes and reconciles to **$65,183,134,488** itemized to 2,081 named public payees. It deliberately retains intermediary payees for reproducibility.
+This is the analytical route dataset behind the interactive diagram. It contains 3,926 routes and reconciles to **$65,183,134,488** published with the names of 2,079 payees after reviewed alias resolution. It deliberately retains intermediary payees for reproducibility.
 
 Important fields:
 
@@ -23,13 +23,13 @@ Important fields:
 
 The routes cover named public payees only. A further **$32,250,847,388** was published through aggregate or non-public-recipient lines and is therefore not assigned to named recipients.
 
-For presentation, the diagram separates **$12,069,601,884** published under named intermediaries from **$53,113,532,604** assigned to 2,078 named non-intermediary organizations. Intermediaries remain in this source dataset, but they are not ranked as recipient organizations in the main visual.
+For presentation, the diagram separates **$12,069,601,884** published under named intermediaries from **$53,113,532,604** assigned to 2,076 named non-intermediary organizations. Intermediaries remain in this source dataset, but they are not ranked as recipient organizations in the main visual.
 
 ### `derived/organization-alias-index.csv`
 
 **Grain:** one published alias attached to one ranked payee.
 
-The file contains 2,084 alias rows for 2,081 payees. It supplies the names, organization types, identity status and entity identifiers required to render the diagram without merging names speculatively.
+The file contains 2,084 alias rows for 2,079 payees. It supplies the names, organization types, identity status and entity identifiers required to render the diagram without merging names speculatively.
 
 An `identity_status` of `reviewed_resolved` indicates that authoritative evidence supports the organization link. Other labels remain separate rather than being consolidated through fuzzy matching.
 

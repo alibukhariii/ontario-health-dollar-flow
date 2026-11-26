@@ -43,12 +43,12 @@ const fixture = {
   collapsed_recipient_count: 1,
   collapsed_recipient_amount_cad: '1.00',
   named_routes: [
-    { recipient_id: 'a', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' },
+    { recipient_id: 'a', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00', intermediary_context: { label: 'Ontario Health' } },
     { recipient_id: 'b', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '40.00' },
     { recipient_id: 'c', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '1.00' },
   ],
   default_routes: [
-    { recipient_id: 'a', target_type: 'named_recipient', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00' },
+    { recipient_id: 'a', target_type: 'named_recipient', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '90.00', intermediary_context: { label: 'Ontario Health' } },
     { recipient_id: 'b', target_type: 'named_recipient', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '35.00' },
     { recipient_id: '__smaller_recipients__', target_type: 'smaller_recipients', program_key: 'Ministry Of Long-Term Care␟long_term_care␟Transfers', amount_cad: '1.00' },
     { recipient_id: '__not_itemized__', target_type: 'not_itemized', program_key: 'Ministry Of Health␟hospital_care␟Operations', amount_cad: '10.00' },
@@ -91,6 +91,7 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   assert.doesNotMatch(html, /recipient-node--not-itemized/);
   assert.match(html, /data-recipient-zoom-offset="2"/);
   assert.match(html, /target_type/);
+  assert.equal((html.match(/network-edge--administered/g) ?? []).length, 1);
   assert.match(html, /recipient-node--intermediary/);
   assert.match(html, /Ministry of Health/);
   assert.match(html, /Ministry of Long-Term Care/);
@@ -99,6 +100,7 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   assert.doesNotMatch(html, /coverage-split__itemized/);
   assert.doesNotMatch(html, /coverage-split__aggregate/);
   assert.match(html, /Zoom to next 1/);
+  assert.doesNotMatch(html, /in this recipient view/);
   assert.match(html, /role="group"/);
   assert.match(html, /Funding purposes/);
   assert.match(html, /Programs/);
@@ -114,6 +116,12 @@ test('recipient layout excludes non-itemized money and pages through the named-r
   const tailHtml = network.renderFundingNetwork(tail, fixture);
   assert.match(tailHtml, /Ranks 3–3 of 3/);
   assert.match(tailHtml, /data-recipient-zoom-back="0"/);
+});
+
+test('recipient search uses the same 24-recipient window as the visual layout', () => {
+  assert.equal(network.recipientPageSize({ displayed_recipient_count: 50 }), 24);
+  assert.equal(network.recipientOffsetForIndex(83, { displayed_recipient_count: 50 }), 72);
+  assert.equal(network.recipientOffsetForIndex(9, { displayed_recipient_count: 10 }), 0);
 });
 
 test('category focus spreads every program in the selected category and exposes readable labels', () => {
@@ -241,7 +249,9 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
       ontario_health_public_accounts_amount_cad: '40.00',
       ontario_health_reported_expense_total_cad: '100.00',
       ontario_health_passed_on_cad: '80.00',
+      ontario_health_transfer_gap_vs_public_accounts_cad: '40.00',
       ontario_health_own_operations_cad: '20.00',
+      ontario_health_athome_reported_expense_total_cad: '15.00',
       ontario_health_athome_contracted_services_cad: '12.00',
       ontario_health_athome_own_operations_cad: '3.00',
       recipient_crosswalk_amount_cad: '0.00',
@@ -263,7 +273,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
   assert.match(html, /How intermediaries are treated/);
   assert.match(html, /Ontario Health atHome/);
   assert.match(html, /\$12/);
-  assert.match(html, /not additional dollars/);
+  assert.match(html, /figures overlap and should not be added together/);
   assert.match(html, /https:\/\/example\.test\/ontario-health-statements/);
   assert.match(html, /https:\/\/example\.test\/athome-statements/);
 });
@@ -287,9 +297,47 @@ test('recipient route uses a dotted explanatory treatment when Ontario Health ha
 
   assert.match(result.routes, /active-route--administered/);
   assert.match(result.routes, /data-intermediary="Ontario Health"/);
+  assert.equal((result.routes.match(/<line /g) ?? []).length, 1);
+  assert.doesNotMatch(result.routes, /transform="translate/);
+  assert.match(result.routes, /stroke-width="13\.00"/);
   assert.doesNotMatch(result.tooltip, /Ontario Health/);
   assert.deepEqual(result.categoryIds, ['hospital_care']);
   assert.deepEqual(result.programKeys, ['Ministry Of Health␟hospital_care␟Operations']);
+});
+
+test('recipient details expand every published route after the first eight', () => {
+  const programs = Array.from({ length: 10 }, (_, index) => ({
+    program_key: `Ministry Of Health␟hospital_care␟Program ${index + 1}`,
+    label: `Program ${index + 1}`,
+    category_id: 'hospital_care',
+    ministry: 'Ministry Of Health',
+    amount_cad: String(10 - index),
+    not_itemized_amount_cad: '0.00',
+  }));
+  const contract = {
+    ...fixture,
+    programs,
+    named_routes: programs.map((program) => ({
+      recipient_id: 'a', program_key: program.program_key, amount_cad: program.amount_cad,
+    })),
+  };
+  const layout = network.layoutFundingNetwork(contract);
+  const payload = {
+    payment_label_id: 'a', display_label: 'Alpha Hospital', payee_type: 'hospital corporation',
+    published_payment_total_cad: '55.00', global_rank: 1,
+    incoming_routes: programs.map((program) => ({
+      ministry: program.ministry,
+      category_id: program.category_id,
+      category_label: 'Hospital care',
+      program_label: program.label,
+      amount_cad: program.amount_cad,
+    })),
+  };
+
+  const result = network.renderRecipientFocus(layout, payload);
+  assert.match(result.tooltip, /<details class="network-tooltip__more">/);
+  assert.match(result.tooltip, /Show 2 more published routes/);
+  assert.match(result.tooltip, /Program 10/);
 });
 
 test('formatters use one decimal place and normalize display casing', () => {

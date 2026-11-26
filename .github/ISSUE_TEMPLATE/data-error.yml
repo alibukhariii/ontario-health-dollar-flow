@@ -1,0 +1,37 @@
+name: Report a data error
+description: Report a possible error in an amount, route, organization match or source.
+title: "Data correction: "
+labels: [data-review]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page URL
+      description: Link to the exact page or recipient view.
+    validations:
+      required: true
+  - type: input
+    id: record
+    attributes:
+      label: Organization, program or amount
+      description: Identify the record as it appears on the site.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What appears to be wrong?
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Supporting public source
+      description: Provide a URL where possible.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I have not included personal health information.
+          required: true

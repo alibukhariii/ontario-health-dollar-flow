@@ -1012,6 +1012,7 @@ def build_network_overview(
                     str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
                 ),
                 "amount_cad": route["amount_cad"],
+                **({"intermediary_context": route["intermediary_context"]} if route.get("intermediary_context") else {}),
             })
         if label_by_default:
             for route in payload.get("incoming_routes", []):
@@ -1022,6 +1023,7 @@ def build_network_overview(
                         str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
                     ),
                     "amount_cad": route["amount_cad"],
+                    **({"intermediary_context": route["intermediary_context"]} if route.get("intermediary_context") else {}),
                 })
         else:
             collapsed_amount += Decimal(str(convergence_row["published_payment_total_cad"]))
@@ -1089,6 +1091,9 @@ def build_network_overview(
         "ontario_health_public_accounts_amount_cad": money(oh_public_accounts_amount),
         "ontario_health_reported_expense_total_cad": str(ontario_health_payload.get("reported_expense_total_cad", "0.00")),
         "ontario_health_passed_on_cad": money(oh_groups.get("passed_on", Decimal("0"))),
+        "ontario_health_transfer_gap_vs_public_accounts_cad": money(
+            oh_groups.get("passed_on", Decimal("0")) - oh_public_accounts_amount
+        ),
         "ontario_health_own_operations_cad": money(oh_groups.get("own_operations", Decimal("0"))),
         "ontario_health_athome_reported_expense_total_cad": str(athome_payload.get("reported_expense_total_cad", "0.00")),
         "ontario_health_athome_contracted_services_cad": money(athome_groups.get("contracted_services", Decimal("0"))),
@@ -1114,6 +1119,7 @@ def build_network_overview(
         "named_intermediary_amount_cad": money(named_intermediary_total),
         "named_intermediary_share_percent": _share(named_intermediary_total, positive_total),
         "intermediary_note": intermediary_note,
+        "named_payee_count": len(convergence["payees"]),
         "named_recipient_count": len(recipients),
         "displayed_recipient_count": min(labelled_count, len(recipients)),
         "collapsed_recipient_count": max(0, len(recipients) - labelled_count),

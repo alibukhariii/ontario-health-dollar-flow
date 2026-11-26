@@ -80,14 +80,18 @@ def _static_overview(network: dict[str, object]) -> str:
     intermediary = network.get("intermediary_note", {})
     intermediary_note = (
         '<aside class="recipient-coverage-note">'
-        '<p><strong>How intermediaries are treated.</strong> Ontario Health and Ontario Health atHome administer funding, but ministries can pay providers directly. '
-        'Ontario Health may therefore record the same funding as revenue and a transfer expense even when Public Accounts names the provider as the payee. '
-        f'Its {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in audited expenses—including '
-        f'{_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in provider and long-term-care transfers—and Ontario Health atHome’s '
-        f'{_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care overlap payments already shown in this diagram; they are not additional dollars. '
-        'Because no complete public recipient-by-recipient crosswalk exists, dotted lines show a documented intermediary role, not a separate amount. '
+        f'<p><strong>How intermediaries are treated.</strong> Public Accounts names Ontario Health as the payee of {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))}. '
+        f'Ontario Health’s audited statements report {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in expenses, including '
+        f'{_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in transfers to providers and long-term care and '
+        f'{_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} in its own operations. '
+        f'The {_format_cad(str(intermediary.get("ontario_health_transfer_gap_vs_public_accounts_cad", "0")))} difference reflects funding Ontario Health oversees that may be paid directly by ministries; it does not identify additional named-recipient amounts. '
+        f'Ontario Health atHome separately reported {_format_cad(str(intermediary.get("ontario_health_athome_reported_expense_total_cad", "0")))} in expenses, including '
+        f'{_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care. These are overlapping views, not amounts to add together. '
+        'These published figures overlap and should not be added together. Public records do not show the exact intermediary share of each recipient payment. '
         f'<a href="{html.escape(str(intermediary.get("source_url", "")))}">Ontario Health source</a>; '
         f'<a href="{html.escape(str(intermediary.get("athome_source_url", "")))}">Ontario Health atHome source</a>.</p>'
+        '<nav class="evidence-links" aria-label="Evidence and project information"><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/METHODOLOGY.md">Methodology</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/LIMITATIONS.md">Limitations</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/tree/main/data/derived">Download data</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/issues/new?template=data-error.yml">Report a data error</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/CORRECTIONS.md">Corrections</a></nav>'
+        '<p class="source-attribution">Payment data: Ontario Public Accounts 2025–26, © King’s Printer for Ontario, used under the Ontario.ca Terms of Use. This project is not endorsed by the Government of Ontario.</p>'
         '</aside>'
     ) if intermediary else ""
     return f"""<article class="static-overview">
