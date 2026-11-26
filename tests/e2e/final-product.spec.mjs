@@ -187,7 +187,8 @@ test('keyboard and structured alternatives support the same exploration task', a
 
   await page.locator('.network-table > summary').click();
   await expect(page.locator('.network-table table').first().locator('tbody tr')).toHaveCount(14);
-  await expect(page.locator('.network-table a')).toHaveAttribute('href', 'recipients/');
+  await expect(page.getByRole('link', { name: /Browse all .* named organizations/ }))
+    .toHaveAttribute('href', 'recipients/');
 });
 
 test('recipient deep links contain useful HTML when JavaScript is disabled', async ({ browser, request, baseURL }) => {
