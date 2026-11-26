@@ -166,7 +166,7 @@ class BuildSiteTests(unittest.TestCase):
             self.assertIn("Data for FY 2025–26", html)
             self.assertIn("Created for Quantika by", html)
             self.assertIn(">Ali Bukhari</a>", html)
-            self.assertIn("Together, the <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> spent", html)
+            self.assertIn("Ontario’s <strong>Ministry of Health</strong> and <strong>Ministry of Long-Term Care</strong> paid", html)
             self.assertIn('id="overview-recipient-chart"', html)
             self.assertIn("The top 10 recipients were", html)
             self.assertEqual(html.count("data-overview-recipient="), 10)
