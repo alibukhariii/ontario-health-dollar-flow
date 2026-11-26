@@ -128,7 +128,7 @@ class BuildSiteTests(unittest.TestCase):
             self.assertIn("$35.3B", root_html)
             self.assertIn("$47.3B", root_html)
             self.assertIn("$3.6B", root_html)
-            self.assertIn("overlapping views", root_html)
+            self.assertIn("views overlap", root_html)
             self.assertIn("Methodology", root_html)
             self.assertIn("Report a data error", root_html)
             self.assertIn("Corrections", root_html)
