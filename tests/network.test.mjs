@@ -273,7 +273,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
   assert.match(html, /How intermediaries fit in/);
   assert.match(html, /Ontario Health atHome/);
   assert.match(html, /\$12/);
-  assert.match(html, /figures overlap and should not be added together/);
+  assert.match(html, /views overlap and are not amounts to add together/);
   assert.match(html, /https:\/\/example\.test\/ontario-health-statements/);
   assert.match(html, /https:\/\/example\.test\/athome-statements/);
 });
