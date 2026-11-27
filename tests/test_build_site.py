@@ -123,7 +123,7 @@ class BuildSiteTests(unittest.TestCase):
             uhn_payload = json.loads((release_root / network["recipients"][0]["path"]).read_text(encoding="utf-8"))
             self.assertEqual(uhn_payload["global_rank"], 1)
             self.assertIn("How intermediaries fit in", root_html)
-            self.assertIn("The 14 funding purposes are project groupings", root_html)
+            self.assertNotIn("The 14 funding purposes are project groupings", root_html)
             self.assertIn("Ontario Health atHome", root_html)
             self.assertIn("$12.0B", root_html)
             self.assertIn("$35.3B", root_html)

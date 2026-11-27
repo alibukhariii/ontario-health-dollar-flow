@@ -114,7 +114,6 @@ def _static_overview(network: dict[str, object]) -> str:
     return f"""<article class="static-overview">
       <p>This page remains readable without JavaScript. The interactive network adds every program and recipient connection.</p>
       <h3>Fourteen funding purposes</h3>
-      <p>The 14 funding purposes are project groupings. “Category fallback” marks a displayed program name used when source detail is “No Value.”</p>
       <div class="static-table-scroll"><table><thead><tr><th>Funding purpose</th><th>Amount</th><th>Share</th></tr></thead><tbody>{category_rows}</tbody></table></div>
       <h3>Largest named organizations</h3>
       <ol>{top_recipients}</ol>
