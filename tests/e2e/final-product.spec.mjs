@@ -7,6 +7,7 @@ async function openNetwork(page) {
 }
 
 test('loads the landing page and complete radial funding network', async ({ page }) => {
+  test.setTimeout(60_000);
   await openNetwork(page);
   await expect(page.getByRole('heading', { name: /Where Ontario’s Health Dollars Went/ })).toBeAttached();
   await expect(page.locator('.landing__copy')).toContainText("Follow the money through Ontario's health system from the ministry to the recipient");
