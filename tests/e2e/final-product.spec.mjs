@@ -115,7 +115,7 @@ test('search opens Ontario Health intermediary details and recipient routes', as
   await expect(intermediaryResult).toBeVisible();
   await intermediaryResult.click();
   await expect(page.locator('#intermediary-card-ontario_health')).toHaveAttribute('open', '');
-  await expect(page.locator('#intermediary-card-ontario_health')).toContainText('$47.3B in transfers');
+  await expect(page.locator('#intermediary-card-ontario_health')).toContainText('$47.3B in transfer expenses');
   await expect(page.locator('#intermediary-card-ontario_health')).toContainText('not reconciled by the sources');
   await page.locator('#recipient-search').fill('University Health Network');
   await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
