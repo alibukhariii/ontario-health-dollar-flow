@@ -268,7 +268,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
 
   assert.doesNotMatch(html, /recipient-node--intermediary/);
   assert.match(html, /intermediary-evidence-stop/);
-  assert.match(html, /Published ministry payment to an intermediary/);
+  assert.match(html, /Published under an intermediary/);
   assert.match(html, /\$40/);
   assert.match(html, /\$80/);
   assert.match(html, /How intermediaries fit in/);
@@ -302,8 +302,8 @@ test('recipient route uses a dotted explanatory treatment when Ontario Health ha
   assert.equal((result.routes.match(/<line /g) ?? []).length, 1);
   assert.doesNotMatch(result.routes, /transform="translate/);
   assert.match(result.routes, /stroke-width="13\.00"/);
-  assert.match(result.tooltip, /dotted line marks that oversight relationship/);
-  assert.match(result.tooltip, /amount shown is the ministry payment published for the named payee/);
+  assert.match(result.tooltip, /Documented intermediary role: Ontario Health\./);
+  assert.doesNotMatch(result.tooltip, /complete allocation|amount shown is the ministry payment/);
   assert.deepEqual(result.categoryIds, ['hospital_care']);
   assert.deepEqual(result.programKeys, ['Ministry Of Health␟hospital_care␟Operations']);
 });

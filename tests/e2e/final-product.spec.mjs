@@ -35,8 +35,20 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.intermediary-figures')).toContainText('not reconciled by the sources');
   await expect(page.locator('.intermediary-figures')).toContainText('$4.8B');
   await expect(page.locator('.intermediary-figures')).toContainText('Reported revenue');
-  await expect(page.locator('.network-legend')).toContainText('Dotted styling marks documented oversight');
-  await expect(page.locator('.network-legend')).toContainText('does not mean money passed through an intermediary');
+  await expect(page.locator('.network-legend')).toContainText('documented funding, accountability or contracting role');
+  await expect(page.locator('.network-legend')).toContainText('Corporation (published payee type)');
+  await expect(page.locator('.network-legend')).toContainText('Intermediary (shaded; downstream allocation not fully published)');
+  const disclosureFontSizes = await page.evaluate(() => [
+    getComputedStyle(document.querySelector('.aggregate-payment-panel > summary')).fontSize,
+    getComputedStyle(document.querySelector('.intermediary-figures > summary')).fontSize,
+  ]);
+  expect(disclosureFontSizes[0]).toBe(disclosureFontSizes[1]);
+  await expect(page.locator('.funding-network .intermediary-nodes')).toHaveCount(0);
+  await expect(page.locator('.funding-network .audited-transfer-edges')).toHaveCount(0);
+  await expect(page.locator('.funding-network .recipient-nodes .intermediary-node')).toHaveCount(3);
+  await expect(page.locator('.funding-network .network-edge[data-target_type="intermediary_payee"]')).not.toHaveCount(0);
+  await expect(page.locator('.funding-network .network-edge[data-target_type="intermediary_payee"].network-edge--administered')).toHaveCount(0);
+  await expect(page.locator('.taxonomy-note')).toHaveCount(0);
   await expect(page.locator('.aggregate-payment-panel')).toContainText('across 47 programs');
   await expect(page.locator('.aggregate-payment-panel')).toContainText('$32.3B');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health reports $48.2B in audited expenses');
@@ -121,7 +133,7 @@ test('search opens Ontario Health intermediary details and recipient routes', as
   await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
   await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
-  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health has a documented funding and accountability role');
+  await expect(page.locator('.network-tooltip')).toContainText('Documented intermediary role:');
   await expect(page.locator('.network-tooltip')).not.toContainText('Published source name: Ontario Health');
   await expect(page.locator('.network-tooltip')).toContainText('Download route-to-source lineage (CSV)');
   await expect(page.locator('.tooltip-source-records summary').first()).toContainText('View source record(s)');

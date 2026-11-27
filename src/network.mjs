@@ -148,6 +148,7 @@ function typeClass(value) {
   const normalized = String(value ?? '').toLocaleLowerCase('en-CA');
   if (normalized.includes('intermediary')) return 'intermediary';
   if (normalized.includes('government') || normalized.includes('municip')) return 'government';
+  if (normalized.includes('corporation')) return 'corporation';
   if (normalized.includes('vendor') || normalized.includes('pharmacy')) return 'vendor';
   if (normalized.includes('hospital') || normalized.includes('provider') || normalized.includes('care')) return 'provider';
   return 'other';
@@ -205,28 +206,58 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
     });
   }
   const focusedProgram = programs.find((row) => row.program_key === focusedProgramKey) ?? null;
+  const intermediaryNodes = contract.intermediaries ?? [];
+  const intermediaryRecipients = intermediaryNodes.map((node) => ({
+    ...node,
+    is_intermediary: true,
+    payee_type: 'intermediary',
+  }));
+  const separateIntermediaryIds = new Set(intermediaryRecipients.map((node) => node.recipient_id));
+  const recipientCatalog = [
+    ...contract.recipients.filter((row) => !intermediaryRecipients.some((node) => node.recipient_id === row.recipient_id)),
+    ...intermediaryRecipients,
+  ];
+  const intermediaryRoutes = intermediaryNodes.flatMap((node) => (node.incoming_routes ?? []).map((route) => ({
+    ...route,
+    recipient_id: node.recipient_id,
+    intermediary_id: node.intermediary_id,
+    program_key: route.program_key ?? `${route.ministry}␟${route.category_id}␟${route.program_label}`,
+    target_type: 'intermediary_payee',
+  })));
+  const allRoutes = [...(contract.named_routes ?? []), ...intermediaryRoutes];
   const programRouteAmounts = new Map();
   if (focusedProgram) {
-    for (const route of contract.named_routes ?? []) {
+    for (const route of allRoutes) {
       if (route.program_key !== focusedProgram.program_key) continue;
       programRouteAmounts.set(route.recipient_id, (programRouteAmounts.get(route.recipient_id) ?? 0) + Number(route.amount_cad));
     }
   }
   const recipientUniverse = focusedProgram
     ? [...programRouteAmounts.entries()].map(([recipientId, amount]) => {
-      const recipient = contract.recipients.find((row) => row.recipient_id === recipientId);
+      const recipient = recipientCatalog.find((row) => row.recipient_id === recipientId);
       return recipient ? { ...recipient, global_amount_cad: recipient.amount_cad, amount_cad: amount, program_amount_cad: amount } : null;
-    }).filter(Boolean).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad) || Number(a.global_rank) - Number(b.global_rank))
-    : contract.recipients;
+    }).filter((row) => row && !separateIntermediaryIds.has(row.recipient_id)).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad) || Number(a.global_rank) - Number(b.global_rank))
+    : recipientCatalog.filter((row) => !separateIntermediaryIds.has(row.recipient_id));
   const pageSize = recipientPageSize(contract);
   const offset = Math.max(0, Math.min(Number(recipientOffset) || 0, Math.max(0, recipientUniverse.length - 1)));
   const recipientGroup = recipientUniverse.slice(offset);
   const displayed = recipientGroup.slice(0, pageSize);
   const remaining = recipientGroup.slice(pageSize);
-  const recipientScaleTotal = recipientGroup.reduce((sum, row) => sum + Number(row.amount_cad), 0);
+  const visibleIntermediaries = intermediaryRecipients
+    .map((node) => {
+      const amount = focusedProgram
+        ? intermediaryRoutes.filter((route) => route.recipient_id === node.recipient_id && route.program_key === focusedProgram.program_key)
+          .reduce((sum, route) => sum + Number(route.amount_cad), 0)
+        : Number(node.amount_cad);
+      return { ...node, amount_cad: amount };
+    })
+    .filter((node) => Number(node.amount_cad) > 0);
+  const recipientScaleTotal = recipientGroup.reduce((sum, row) => sum + Number(row.amount_cad), 0)
+    + visibleIntermediaries.reduce((sum, row) => sum + Number(row.amount_cad), 0);
   const remainingAmount = remaining.reduce((sum, row) => sum + Number(row.amount_cad), 0);
   const visualRecipients = [
     ...displayed,
+    ...visibleIntermediaries,
     { recipient_id: SMALLER_ID, label: `${remaining.length.toLocaleString('en-CA')} smaller ${remaining.length === 1 ? 'recipient' : 'recipients'}`,
       payee_type: 'aggregated named recipients', amount_cad: remainingAmount, aggregate_kind: 'smaller',
       zoomOffset: offset + pageSize, zoomCount: Math.min(pageSize, remaining.length) },
@@ -242,13 +273,13 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
   for (const recipient of remaining) {
     if (smaller) recipientById.set(recipient.recipient_id, { ...smaller, hiddenRecipientId: recipient.recipient_id });
   }
-  const visibleIds = new Set(displayed.map((row) => row.recipient_id));
+  const visibleIds = new Set([...displayed, ...visibleIntermediaries].map((row) => row.recipient_id));
   const remainingIds = new Set(remaining.map((row) => row.recipient_id));
   const aggregateRoutes = new Map();
   const visibleRoutes = [];
-  for (const route of contract.named_routes ?? []) {
+  for (const route of allRoutes) {
     if (focusedProgram && route.program_key !== focusedProgram.program_key) continue;
-    if (visibleIds.has(route.recipient_id)) visibleRoutes.push({ ...route, target_type: 'named_recipient' });
+    if (visibleIds.has(route.recipient_id)) visibleRoutes.push({ ...route, target_type: route.target_type ?? 'named_recipient' });
     else if (remainingIds.has(route.recipient_id)) {
       aggregateRoutes.set(route.program_key, (aggregateRoutes.get(route.program_key) ?? 0) + Number(route.amount_cad));
     }
@@ -315,7 +346,10 @@ function recipientNode(recipient) {
   const intermediaryClass = recipient.is_intermediary ? ' recipient-node--intermediary' : '';
   const unresolvedClass = recipient.identity_status === 'unresolved' ? ' recipient-node--unresolved' : '';
   const type = ` recipient-node--type-${typeClass(recipient.payee_type)}`;
-  const interactive = !recipient.aggregate_kind;
+  const interactive = !recipient.aggregate_kind && (!recipient.is_intermediary || !recipient.intermediary_id);
+  const intermediaryLink = recipient.is_intermediary && recipient.intermediary_id
+    ? `href="#intermediary-card-${escapeHtml(recipient.intermediary_id)}" tabindex="0"`
+    : '';
   const zoomControl = recipient.aggregate_kind === 'smaller';
   const insideLabel = recipient.labelMode === 'inside';
   const controlAttributes = interactive
@@ -326,41 +360,11 @@ function recipientNode(recipient) {
   const outsideLines = insideLabel ? [] : wrapLabel(recipient.label, 21, 3);
   const leaderEndX = insideLabel ? recipient.x : recipient.labelX - recipient.labelSide * 9;
   const leaderEndY = insideLabel ? recipient.y : recipient.labelY;
-  return `<g class="recipient-node${aggregateClass}${intermediaryClass}${unresolvedClass}${type}${scaleClass}" data-visual-recipient-id="${escapeHtml(recipient.recipient_id)}" data-payee-type="${escapeHtml(recipient.payee_type)}" ${controlAttributes} aria-label="${escapeHtml(`${displayLabel(recipient.label)}, ${formatCad(recipient.amount_cad)}${recipient.global_rank ? `, rank ${recipient.global_rank}` : ''}${recipient.identity_status === 'unresolved' ? ', identity unresolved' : ''}${zoomControl ? `, ${zoomHint}` : ''}`)}">
+  const tag = intermediaryLink ? 'a' : 'g';
+  return `<${tag} class="recipient-node${recipient.is_intermediary ? ' intermediary-node' : ''}${aggregateClass}${intermediaryClass}${unresolvedClass}${type}${scaleClass}" data-visual-recipient-id="${escapeHtml(recipient.recipient_id)}" data-payee-type="${escapeHtml(recipient.payee_type)}" ${controlAttributes} ${intermediaryLink} aria-label="${escapeHtml(`${displayLabel(recipient.label)}, ${formatCad(recipient.amount_cad)}${recipient.global_rank ? `, rank ${recipient.global_rank}` : ''}${recipient.identity_status === 'unresolved' ? ', identity unresolved' : ''}${zoomControl ? `, ${zoomHint}` : ''}${recipient.is_intermediary ? ', intermediary, open details' : ''}`)}"><title>${escapeHtml(`${displayLabel(recipient.label)} · ${recipient.is_intermediary ? 'Published ministry payment to intermediary' : 'Published payment'} · ${formatCad(recipient.amount_cad)}`)}</title>
     <circle cx="${recipient.x.toFixed(1)}" cy="${recipient.y.toFixed(1)}" r="${recipient.r.toFixed(1)}"/>
     ${insideLabel ? `<text x="${recipient.x.toFixed(1)}" y="${recipient.y.toFixed(1)}" text-anchor="middle">${tspans(wrapLabel(recipient.label, recipient.aggregate_kind ? 21 : 16), recipient.x, recipient.y - (zoomControl ? 17 : 7), 14)}<tspan class="recipient-node__amount" x="${recipient.x.toFixed(1)}" y="${(recipient.y + Math.min(recipient.r * 0.38, 23)).toFixed(1)}">${formatCad(recipient.amount_cad)}</tspan>${zoomControl ? `<tspan class="recipient-node__hint" x="${recipient.x.toFixed(1)}" y="${(recipient.y + Math.min(recipient.r * 0.62, 40)).toFixed(1)}">${escapeHtml(zoomHint)}</tspan>` : ''}</text>` : `<line class="recipient-node__label-leader" x1="${recipient.x.toFixed(1)}" y1="${recipient.y.toFixed(1)}" x2="${leaderEndX.toFixed(1)}" y2="${leaderEndY.toFixed(1)}" marker-end="url(#arrow-label)"/><text class="recipient-node__external-label" x="${recipient.labelX.toFixed(1)}" y="${recipient.labelY.toFixed(1)}" text-anchor="${recipient.labelAnchor}">${tspans(outsideLines, recipient.labelX, recipient.labelY - 7, 13)}<tspan class="recipient-node__amount" x="${recipient.labelX.toFixed(1)}" y="${(recipient.labelY + outsideLines.length * 6 + 11).toFixed(1)}">${formatCad(recipient.amount_cad)}</tspan></text>`}
-  </g>`;
-}
-
-function renderIntermediaryNodes(layout, contract) {
-  const nodes = contract.intermediaries ?? [];
-  if (!nodes.length) return '';
-  const centres = nodes.length === 3
-    ? [layout.width * .19, layout.width * .5, layout.width * .81]
-    : nodes.map((_, index) => layout.width * (.15 + .7 * (index + 1) / (nodes.length + 1)));
-  const y = layout.height + 110;
-  const positions = new Map(nodes.map((node, index) => [node.recipient_id, { x: centres[index], y, r: 48 }]));
-  const lines = nodes.flatMap((node) => (node.incoming_routes ?? []).map((route) => {
-    const program = layout.programByKey.get(`${route.ministry}␟${route.category_id}␟${route.program_label}`);
-    const target = positions.get(node.recipient_id);
-    if (!program || !target) return '';
-    return lineBetween(program, target, 'network-edge network-edge--intermediary-payment',
-      `stroke-width="${routeWidth(route.amount_cad, contract.positive_published_payments_cad, { maximum: 4.5 }).toFixed(2)}" marker-end="url(#arrow-recipient)"`);
-  })).join('');
-  const oh = nodes.find((node) => node.intermediary_id === 'ontario_health');
-  const atHome = nodes.find((node) => node.intermediary_id === 'ontario_health_athome');
-  const transfer = Number(contract.intermediary_note?.ontario_health_athome_transfer_from_oh_cad ?? 0);
-  const auditedTransfer = oh && atHome && transfer > 0
-    ? `${lineBetween(positions.get(oh.recipient_id), positions.get(atHome.recipient_id), 'network-edge network-edge--audited-transfer', `stroke-width="${routeWidth(transfer, contract.positive_published_payments_cad, { maximum: 8 }).toFixed(2)}" marker-end="url(#arrow-label)"`)}<text class="audited-transfer-label" x="${((positions.get(oh.recipient_id).x + positions.get(atHome.recipient_id).x) / 2).toFixed(1)}" y="${(y - 59).toFixed(1)}" text-anchor="middle">OH audited transfer ${formatCad(transfer)}</text>`
-    : '';
-  const bubbles = nodes.map((node) => {
-    const point = positions.get(node.recipient_id);
-    const isAtHome = node.intermediary_id === 'ontario_health_athome';
-    const basis = isAtHome ? 'Direct PA $150K' : `PA ${formatCad(node.amount_cad)}`;
-    const title = `${node.label}: ${basis}. Intermediary; downstream use is not fully itemized.`;
-    return `<a class="intermediary-node" href="#intermediary-card-${escapeHtml(node.intermediary_id)}" aria-label="${escapeHtml(title)}"><title>${escapeHtml(title)}</title><circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="${point.r}" fill="url(#intermediary-hatch)"/><text x="${point.x.toFixed(1)}" y="${(point.y - 8).toFixed(1)}" text-anchor="middle">${tspans(wrapLabel(node.label, 15, 2), point.x, point.y - 8, 14)}<tspan class="intermediary-node__amount" x="${point.x.toFixed(1)}" y="${(point.y + 27).toFixed(1)}">${escapeHtml(basis)}</tspan></text></a>`;
-  }).join('');
-  return `<g class="intermediary-payment-edges">${lines}</g><g class="audited-transfer-edges">${auditedTransfer}</g><g class="intermediary-nodes">${bubbles}</g>`;
+  </${tag}>`;
 }
 
 function intermediaryStatement(profile) {
@@ -401,14 +405,12 @@ export function renderFundingNetwork(layout, contract) {
     const program = layout.programByKey.get(route.program_key);
     const recipient = layout.recipientById.get(route.recipient_id);
     if (!program || !recipient) return '';
-    const intermediary = recipient.is_intermediary ? ' network-edge--intermediary' : '';
     const administered = route.intermediary_context ? ' network-edge--administered' : '';
     const focused = layout.focusedProgramKey && route.program_key === layout.focusedProgramKey ? ' is-selected' : '';
     const context = focused ? '' : ' is-context';
-    return lineBetween(program, recipient, `network-edge network-edge--recipient${intermediary}${administered}${focused}${context}`,
+    return lineBetween(program, recipient, `network-edge network-edge--recipient${administered}${focused}${context}`,
       `data-target_type="${escapeHtml(route.target_type)}" stroke-width="${routeWidth(route.amount_cad, layout.recipientScaleTotal, { maximum: 13 }).toFixed(2)}" marker-end="url(#arrow-recipient)"`);
   }).join('');
-  const intermediaryLayer = renderIntermediaryNodes(layout, contract);
   const gradients = layout.categories.filter((row) => row.colour === 'mixed').map((category) => {
     const moh = Number(category.ministry_amounts.find((row) => row.ministry === MOH)?.amount_cad ?? 0);
     const split = Number(category.amount_cad) ? (moh / Number(category.amount_cad) * 100).toFixed(2) : '50';
@@ -459,10 +461,10 @@ export function renderFundingNetwork(layout, contract) {
   const coverageNote = note.source_url
     ? `<aside class="recipient-coverage-note"><details class="intermediary-figures"><summary>How intermediaries fit in</summary><p>These three named intermediaries appear in Public Accounts: Ontario Health (${formatCad(note.ontario_health_public_accounts_amount_cad)}), Ontario Health atHome (${formatCad(note.ontario_health_athome_direct_ministry_amount_cad)} direct from a ministry), and Accerta (${formatCad(note.accerta_public_accounts_amount_cad)}). Ontario Health and Ontario Health atHome also report separate audited revenue and expense figures. Those records do not match every audited dollar to a named downstream recipient. The $35.3B difference between Ontario Health’s reported transfer expenses and its Public Accounts payee amount is not reconciled by the sources. These figures are shown separately; do not add them to recipient payment amounts.</p><div class="intermediary-summary-scroll" role="region" aria-label="Intermediary payments and audited figures" tabindex="0"><p class="table-scroll-hint">Swipe or scroll the table to compare the columns.</p><table class="intermediary-summary"><thead><tr><th>Intermediary</th><th>Public Accounts payment</th><th>Separate audited view</th></tr></thead><tbody><tr><th>Ontario Health</th><td>${formatCad(note.ontario_health_public_accounts_amount_cad)}</td><td>${formatCad(note.ontario_health_reported_expense_total_cad)} in expenses, including ${formatCad(note.ontario_health_passed_on_cad)} in transfers and ${formatCad(note.ontario_health_own_operations_cad)} in operations.</td></tr><tr><th>Ontario Health atHome</th><td>${formatCad(note.ontario_health_athome_direct_ministry_amount_cad)} direct ministry payment</td><td>Ontario Health reports ${formatCad(note.ontario_health_athome_transfer_from_oh_cad)} transferred to OHaH; OHaH reports ${formatCad(note.ontario_health_athome_reported_expense_total_cad)} in expenses, including ${formatCad(note.ontario_health_athome_contracted_services_cad)} in contracted care.</td></tr><tr><th>Accerta</th><td>${formatCad(note.accerta_public_accounts_amount_cad)}</td><td>Published records do not split this amount between onward payments and Accerta’s own costs.</td></tr></tbody></table></div><section class="intermediary-card-list" aria-label="Intermediary details">${renderIntermediaryCards(contract)}</section><p>Sources: <a href="${escapeHtml(note.source_url)}" target="_blank" rel="noopener">Ontario Health’s audited statements</a>; <a href="${escapeHtml(note.athome_source_url)}" target="_blank" rel="noopener">Ontario Health atHome’s audited statements</a>; <a href="${escapeHtml(contract.source.url)}" target="_blank" rel="noopener">Ontario Public Accounts payment schedule</a>.</p></details><nav class="evidence-links" aria-label="Evidence and project information"><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/METHODOLOGY.md">Methodology</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/LIMITATIONS.md">Limitations</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/tree/main/data/derived">Download data</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/issues/new?template=data-error.yml">Report a data error</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/CORRECTIONS.md">Corrections</a></nav><p class="source-attribution">Payment data: Ontario Public Accounts 2025–26, © King’s Printer for Ontario, used under the <a href="https://www.ontario.ca/page/terms-use">Ontario.ca Terms of Use</a>. This project is not endorsed by the Government of Ontario.</p></aside>`
     : '';
-  const scaleGuide = `<p class="network-guidance">Hover, focus or search to reveal every published route into an organization.</p><p class="taxonomy-note">The 14 funding purposes are project groupings. “Category fallback” marks a program label used when the source detail says “No Value.”</p><div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
+  const scaleGuide = `<p class="network-guidance">Hover, focus or search to reveal every published route into an organization.</p><div class="network-scale" aria-label="Current network scale"><span class="scale-step scale-step--categories"${layout.focusScale === 'categories' ? ' aria-current="step"' : ''}>1 · Funding purposes</span><span class="scale-step scale-step--programs"${layout.focusScale === 'programs' ? ' aria-current="step"' : ''}>2 · Programs</span><span class="scale-step scale-step--recipients"${layout.focusScale === 'recipients' ? ' aria-current="step"' : ''}>3 · Named recipients</span></div>`;
   const recipientRows = layout.recipients.map((recipient) => recipientNode({ ...recipient, isContext: layout.focusScale !== 'recipients', isScaleActive: layout.focusScale === 'recipients' })).join('');
   const aggregatePanel = `<details class="aggregate-payment-panel"><summary>Program-level payments not itemized to named recipients · ${formatCad(contract.not_itemized_to_public_recipient_cad)} across ${(contract.not_itemized_programs ?? []).length} programs</summary><p>These payments are published under program or grouped labels. The source does not name a recipient for each amount.</p><ul>${(contract.not_itemized_programs ?? []).map((row) => `<li><button type="button" data-focus-program-key="${escapeHtml(row.program_key)}"><span>${escapeHtml(displayLabel(row.program_label))}${row.program_label_status === 'Category fallback' ? ' · Category fallback' : ''}<small>${escapeHtml(displayLabel(row.category_label))} · ${escapeHtml(displayLabel(row.ministry))}</small></span><strong>${formatCad(row.amount_cad)}</strong></button><details class="aggregate-source-records"><summary>View source record(s) · ${(row.source_rows ?? []).length}</summary><ul>${(row.source_rows ?? []).map((sourceRow) => `<li>Public Accounts row ${escapeHtml(sourceRow.source_row_number)} · ${escapeHtml(sourceRow.source_payee_label)} · ${escapeHtml(sourceRow.source_payment_category)} / ${escapeHtml(sourceRow.source_payment_detail || 'No Value')} · ${formatCad(sourceRow.amount_cad)}</li>`).join('')}</ul><a href="${escapeHtml(contract.source.url)}" target="_blank" rel="noopener">Open the Ontario Public Accounts schedule</a></details></li>`).join('')}</ul><p><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/route-to-source-lineage.csv" target="_blank" rel="noopener">Download source-row lineage (CSV)</a></p></details>`;
-  return `${scaleGuide}${focusedStatus}${programFocusList}${intermediaryStop}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-140 -160 ${layout.width + 280} ${layout.height + 320}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen project-grouped funding purposes connect to published programs, named recipients, intermediary payees, and program-level aggregates that are not itemized to named recipients. Audited intermediary transfers are shown separately.</desc><defs>${gradients}<pattern id="vendor-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="8" height="8" fill="#fff"/><line x1="0" y1="0" x2="0" y2="8" stroke="#c8c8c3" stroke-width="2"/></pattern><pattern id="intermediary-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="10" height="10" fill="#f3f3ef"/><line x1="0" y1="0" x2="0" y2="10" stroke="#b8b8b1" stroke-width="3"/></pattern><marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--ink)"/></marker><marker id="arrow-label" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker></defs><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g>${intermediaryLayer}</svg><div class="network-footer"><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--intermediary"></i>Published payment to an intermediary</span><span><i class="legend-line legend-line--audited"></i>Separate audited transfer from Ontario Health to OHaH</span><span><i class="legend-line legend-line--dotted"></i>Route amounts are published ministry payments to named payees. Dotted styling marks documented oversight; it does not mean money passed through an intermediary or show a complete allocation.</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary; downstream payment split is not fully published</span></div>${aggregatePanel}${coverageNote}</div>${renderMobileNetwork(contract)}`;
+  return `${scaleGuide}${focusedStatus}${programFocusList}${intermediaryStop}${zoomStatus}<svg class="funding-network" data-focus-scale="${layout.focusScale}" viewBox="-140 -160 ${layout.width + 280} ${layout.height + 320}" role="group" aria-labelledby="network-svg-title network-svg-desc"><title id="network-svg-title">Ontario health-ministry published-payment network</title><desc id="network-svg-desc">Fourteen project-grouped funding purposes connect to published programs and payment recipients. Intermediaries sit with the other recipient nodes. Solid lines show published payments; dotted lines mark a documented intermediary role.</desc><defs>${gradients}<pattern id="vendor-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="8" height="8" fill="#fff"/><line x1="0" y1="0" x2="0" y2="8" stroke="#c8c8c3" stroke-width="2"/></pattern><pattern id="intermediary-hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="10" height="10" fill="#f3f3ef"/><line x1="0" y1="0" x2="0" y2="10" stroke="#b8b8b1" stroke-width="3"/></pattern><pattern id="corporation-hatch" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#fff"/><path d="M0 0L8 8M8 0L0 8" stroke="#b8b8b1" stroke-width="1"/></pattern><marker id="arrow-moh" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--moh)"/></marker><marker id="arrow-mltc" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="16" markerHeight="16" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--mltc)"/></marker><marker id="arrow-recipient" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="#555"/></marker><marker id="arrow-focus" markerUnits="userSpaceOnUse" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="15" markerHeight="15" orient="auto"><path d="M0 0L12 6L0 12z" fill="var(--ink)"/></marker><marker id="arrow-label" markerUnits="userSpaceOnUse" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#555"/></marker></defs><g class="category-program-edges">${categoryProgramLines}</g><g class="default-recipient-edges">${defaultLines}</g><g id="active-routes"></g><g class="category-nodes">${categoryNodes}</g><g class="program-nodes">${programNodes}</g><g class="recipient-nodes">${recipientRows}</g></svg><div class="network-footer"><div class="network-legend" aria-label="Network legend"><span><i class="legend-swatch legend-swatch--moh"></i>Ministry of Health</span><span><i class="legend-swatch legend-swatch--mltc"></i>Ministry of Long-Term Care</span><span><i class="legend-line"></i>Published payment</span><span><i class="legend-line legend-line--dotted"></i>Published payment; Ontario Health or Ontario Health atHome has a documented funding, accountability or contracting role</span><span><i class="legend-outline legend-outline--organization"></i>Organization or provider</span><span><i class="legend-outline legend-outline--corporation"></i>Corporation (published payee type)</span><span><i class="legend-outline legend-outline--intermediary"></i>Intermediary (shaded; downstream allocation not fully published)</span></div>${aggregatePanel}${coverageNote}</div>${renderMobileNetwork(contract)}`;
 }
 
 export function renderRecipientFocus(layout, payload) {
@@ -484,7 +486,7 @@ export function renderRecipientFocus(layout, payload) {
     const share = total ? Number(route.amount_cad) / total * 100 : 0;
     const sourceRows = route.source_rows ?? [];
     const sourceDetails = sourceRows.length ? `<details class="tooltip-source-records"><summary>View source record(s) · ${sourceRows.length}</summary><ul>${sourceRows.map((sourceRow) => `<li>Public Accounts row ${escapeHtml(sourceRow.source_row_number)} · ${escapeHtml(sourceRow.source_payee_label)} · ${formatCad(sourceRow.amount_cad)}</li>`).join('')}</ul><a href="${escapeHtml(route.source?.url ?? 'https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments')}" target="_blank" rel="noopener">Open the Ontario Public Accounts schedule</a></details>` : '';
-    const oversight = route.intermediary_context ? `<small class="route-intermediary-note">${escapeHtml(route.intermediary_context.explanation)}</small>` : '';
+    const oversight = route.intermediary_context ? `<small class="route-intermediary-note">Documented intermediary role: ${escapeHtml(route.intermediary_context.label)}.</small>` : '';
     return `<li><i class="ministry-chip ministry-chip--${ministryClass(route.ministry)}" aria-label="${escapeHtml(displayLabel(route.ministry))}"></i><span><b>${escapeHtml(displayLabel(route.program_label))}</b>${route.program_label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : ''}<small>${escapeHtml(displayLabel(route.category_label))}</small>${oversight}<span class="route-share"><i style="width:${share.toFixed(2)}%"></i></span>${sourceDetails}</span><strong>${formatCad(route.amount_cad)}<small>${share.toFixed(1)}%</small></strong></li>`;
   };
   const rows = routes.slice(0, 8).map(routeRow).join('');
@@ -514,7 +516,15 @@ export function renderMobileNetwork(contract) {
   for (const route of contract.default_routes) { const rows = routesByProgram.get(route.program_key) ?? []; rows.push(route); routesByProgram.set(route.program_key, rows); }
   const programsByCategory = new Map();
   for (const program of contract.programs) { const rows = programsByCategory.get(program.category_id) ?? []; rows.push(program); programsByCategory.set(program.category_id, rows); }
-  const mobileIntermediaries = `<details class="mobile-intermediaries"><summary>Named intermediaries (3) · published amounts are not complete downstream allocations</summary><ol>${(contract.intermediaries ?? []).map((node) => `<li><strong>${escapeHtml(node.label)}</strong><span>${node.intermediary_id === 'ontario_health_athome' ? `Direct Public Accounts payment ${formatCad(node.amount_cad)}; separate audited transfer from Ontario Health ${formatCad(contract.intermediary_note?.ontario_health_athome_transfer_from_oh_cad)}` : `Public Accounts payment ${formatCad(node.amount_cad)}`}</span><a href="#intermediary-card-${escapeHtml(node.intermediary_id)}">Open source and financial details</a></li>`).join('')}</ol></details>`;
+  const intermediaryRoutesByProgram = new Map();
+  for (const node of contract.intermediaries ?? []) {
+    for (const route of node.incoming_routes ?? []) {
+      const programKey = route.program_key ?? `${route.ministry}␟${route.category_id}␟${route.program_label}`;
+      const rows = intermediaryRoutesByProgram.get(programKey) ?? [];
+      rows.push({ node, route });
+      intermediaryRoutesByProgram.set(programKey, rows);
+    }
+  }
   return `<div class="mobile-network" aria-label="Mobile funding network">${contract.categories.map((category) => {
     const programs = (programsByCategory.get(category.category_id) ?? []).sort((a, b) => Number(b.amount_cad) - Number(a.amount_cad));
     return `<details class="mobile-category"><summary><span>${escapeHtml(category.label)}</span><strong>${formatCad(category.amount_cad)}</strong></summary><div>${programs.map((program) => {
@@ -522,13 +532,14 @@ export function renderMobileNetwork(contract) {
       const named = routes.filter((route) => route.target_type === 'named_recipient').slice(0, 5);
       const grouped = routes.filter((route) => route.target_type === 'smaller_recipients');
       const intermediary = routes.filter((route) => route.target_type === 'intermediary_stop');
+      const intermediaryRecipients = intermediaryRoutesByProgram.get(program.program_key) ?? [];
       const notItemized = routes.filter((route) => route.target_type === 'not_itemized');
       return `<section class="mobile-program"><h3><span>${escapeHtml(displayLabel(program.label))}${program.label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : ''}</span><span>${formatCad(program.amount_cad)}</span></h3><ul>${named.map((route) => {
         const recipient = recipients.get(route.recipient_id);
         return `<li><button type="button" data-recipient-id="${escapeHtml(route.recipient_id)}"><span>${escapeHtml(displayLabel(recipient?.label ?? 'Named recipient'))}</span><strong>${formatCad(route.amount_cad)}</strong></button></li>`;
-  }).join('')}${grouped.map((route) => `<li><span>Other smaller named recipients</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}${intermediary.map((route) => `<li class="mobile-program__stop"><span>Published ministry payment to an intermediary; downstream recipients not itemized</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}${notItemized.map((route) => `<li class="mobile-program__stop"><span>Not itemized to a named payee</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}</ul></section>`;
+  }).join('')}${intermediaryRecipients.map(({ node, route }) => `<li class="mobile-program__intermediary"><a href="#intermediary-card-${escapeHtml(node.intermediary_id)}">${escapeHtml(node.label)} · intermediary</a><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}${grouped.map((route) => `<li><span>Other smaller named recipients</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}${intermediary.map((route) => `<li class="mobile-program__stop"><span>Published payment to an unidentified intermediary</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}${notItemized.map((route) => `<li class="mobile-program__stop"><span>Not itemized to a named payee</span><strong>${formatCad(route.amount_cad)}</strong></li>`).join('')}</ul></section>`;
   }).join('')}</div></details>`;
-  }).join('')}${mobileIntermediaries}</div>`;
+  }).join('')}</div>`;
 }
 
 export function renderNetworkTable(contract) {
