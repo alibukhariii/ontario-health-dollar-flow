@@ -121,7 +121,8 @@ test('search opens Ontario Health intermediary details and recipient routes', as
   await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
   await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
-  await expect(page.locator('.network-tooltip')).not.toContainText('Ontario Health');
+  await expect(page.locator('.network-tooltip')).toContainText('Ontario Health has a documented funding and accountability role');
+  await expect(page.locator('.network-tooltip')).not.toContainText('Published source name: Ontario Health');
   await expect(page.locator('.network-tooltip')).toContainText('Download route-to-source lineage (CSV)');
   await expect(page.locator('.tooltip-source-records summary').first()).toContainText('View source record(s)');
   await expect(page.locator('#active-routes .active-route--administered')).not.toHaveCount(0);
