@@ -14,7 +14,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
   await expect(page.locator('#page-overview')).toContainText('Ontario’s Ministry of Health and Ministry of Long-Term Care paid $97.4B* across the positive payment entries published for 2025–26.');
   await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,079 named payees');
-  await expect(page.locator('#page-overview')).toContainText('$12.070B of the named-payee total');
+  await expect(page.locator('#page-overview')).toContainText('$12.070B was listed as paid to Ontario Health, Ontario Health atHome and Accerta');
   await expect(page.locator('#page-overview')).toContainText('$32.251B (33.1%) is accounted for as program-level aggregate payments');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
@@ -205,7 +205,7 @@ test('keyboard and structured alternatives support the same exploration task', a
     .toHaveAttribute('href', 'recipients/');
   const routeTable = page.locator('.network-table__routes');
   await routeTable.locator('summary').click();
-  await expect(routeTable.locator('tbody tr')).toHaveCount(3973);
+  await expect(routeTable.locator('tbody tr')).toHaveCount(3926);
   await expect(routeTable).toContainText('Identity unresolved');
   await expect(routeTable).toContainText('Category fallback');
   await expect(routeTable).toContainText('Long-term care transfer payments');
