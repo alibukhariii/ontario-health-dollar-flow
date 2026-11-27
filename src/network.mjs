@@ -539,32 +539,36 @@ export function renderNetworkTable(contract) {
   return `<details class="network-table"><summary>View the data as tables</summary><h3>Funding purposes</h3><table><thead><tr><th>Purpose</th><th>Amount</th><th>Share</th></tr></thead><tbody>${categories}</tbody></table><h3>100 largest named organizations</h3><table><thead><tr><th>Rank</th><th>Organization</th><th>Type</th><th>Amount</th></tr></thead><tbody>${recipients}</tbody></table><p><a href="recipients/">Browse all ${contract.named_recipient_count.toLocaleString('en-CA')} named organizations</a></p><details class="network-table__routes"><summary>All ${routeTotal.toLocaleString('en-CA')} published payee and aggregate routes</summary><p>Named payee rows, intermediary payee rows and program-level aggregates are shown as separate records. Dotted oversight links do not carry an amount. The source table lists published payments only; audited intermediary expenses are in “How intermediaries fit in.”</p><div class="network-table__routes-content"><p>Open this section to load the complete route and source-record table.</p></div></details>${adjustments ? `<h3>Signed adjustments (excluded from positive payments)</h3><table><thead><tr><th>Ministry</th><th>Source row</th><th>Published payee label</th><th>Amount</th><th>Meaning</th></tr></thead><tbody>${adjustments}</tbody></table>` : ''}</details>`;
 }
 
-export function renderNetworkRoutesTable(contract) {
+export function renderNetworkRoutesTable(contract, offset = 0, pageSize = 100) {
+  const records = [
+    ...(contract.named_routes ?? []).map((route) => ({ kind: 'named', route })),
+    ...(contract.not_itemized_programs ?? []).map((route) => ({ kind: 'aggregate', route })),
+  ];
+  const total = records.length;
+  const start = Math.min(Math.max(0, Number(offset) || 0), Math.max(0, total - 1));
+  const end = Math.min(start + pageSize, total);
   const payeesById = new Map([
     ...contract.recipients.map((row) => [row.recipient_id, row]),
     ...(contract.intermediaries ?? []).map((row) => [row.recipient_id, row]),
   ]);
-  const namedRouteRows = (contract.named_routes ?? []).map((route) => {
-    const payee = payeesById.get(route.recipient_id);
+  const rows = records.slice(start, end).map(({ kind, route }) => {
     const sourceRows = route.source_rows ?? [];
-    const publishedNames = [...new Set(sourceRows.map((row) => row.source_payee_label).filter(Boolean))];
     const lineage = sourceRows.length
       ? `<details><summary>View source record(s) · ${sourceRows.length}</summary><ul>${sourceRows.map((row) => `<li>Public Accounts row ${escapeHtml(row.source_row_number)} · ${escapeHtml(row.source_payee_label)} · ${escapeHtml(row.source_payment_category)} / ${escapeHtml(row.source_payment_detail || 'No Value')} · ${formatCad(row.amount_cad)}</li>`).join('')}</ul></details>`
       : '';
     const fallback = route.program_label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : '';
+    if (kind === 'aggregate') {
+      return `<tr><td>${escapeHtml(displayLabel(route.ministry))}</td><td>${escapeHtml(displayLabel(route.category_label))}</td><td>${escapeHtml(displayLabel(route.program_label))}${fallback}</td><td>Recipient not itemized</td><td>${[...new Set(sourceRows.map((row) => row.source_payee_label).filter(Boolean))].map(escapeHtml).join(' · ')}</td><td>${formatCad(route.amount_cad)}</td><td>Program-level aggregate · ${lineage}</td></tr>`;
+    }
+    const payee = payeesById.get(route.recipient_id);
+    const publishedNames = [...new Set(sourceRows.map((row) => row.source_payee_label).filter(Boolean))];
     const intermediaryNote = route.intermediary_context
       ? `<small>${escapeHtml(route.intermediary_context.label)} has a documented ${escapeHtml(route.intermediary_context.role)}; the amount shown is the ministry payment published for this named payee.</small>`
       : '';
     const identityNote = payee?.identity_status === 'unresolved' ? '<small class="fallback-label">Identity unresolved</small>' : '';
     return `<tr><td>${escapeHtml(displayLabel(route.ministry))}</td><td>${escapeHtml(displayLabel(route.category_label))}</td><td>${escapeHtml(displayLabel(route.program_label))}${fallback}</td><td>${escapeHtml(displayLabel(payee?.label ?? route.recipient_id))}<small>${escapeHtml(payee?.payee_type ?? 'named payee')}</small>${identityNote}</td><td>${publishedNames.map(escapeHtml).join(' · ')}</td><td>${formatCad(route.amount_cad)}</td><td>${intermediaryNote}${lineage}</td></tr>`;
   }).join('');
-  const aggregateRows = (contract.not_itemized_programs ?? []).map((route) => {
-    const sourceRows = route.source_rows ?? [];
-    const lineage = sourceRows.length
-      ? `<details><summary>View source record(s) · ${sourceRows.length}</summary><ul>${sourceRows.map((row) => `<li>Public Accounts row ${escapeHtml(row.source_row_number)} · ${escapeHtml(row.source_payee_label)} · ${escapeHtml(row.source_payment_category)} / ${escapeHtml(row.source_payment_detail || 'No Value')} · ${formatCad(row.amount_cad)}</li>`).join('')}</ul></details>`
-      : '';
-    const fallback = route.program_label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : '';
-    return `<tr><td>${escapeHtml(displayLabel(route.ministry))}</td><td>${escapeHtml(displayLabel(route.category_label))}</td><td>${escapeHtml(displayLabel(route.program_label))}${fallback}</td><td>Recipient not itemized</td><td>${[...new Set(sourceRows.map((row) => row.source_payee_label).filter(Boolean))].map(escapeHtml).join(' · ')}</td><td>${formatCad(route.amount_cad)}</td><td>Program-level aggregate · ${lineage}</td></tr>`;
-  }).join('');
-  return `<div class="network-table__scroll"><table><thead><tr><th>Ministry</th><th>Project grouping</th><th>Program label</th><th>Named payee or aggregate</th><th>Published payee label(s)</th><th>Published amount</th><th>Lineage and interpretation</th></tr></thead><tbody>${namedRouteRows}${aggregateRows}</tbody></table></div>`;
+  const previous = Math.max(0, start - pageSize);
+  const next = end < total ? end : start;
+  return `<p class="network-table__route-status" aria-live="polite">Showing ${start + 1}–${end} of ${total.toLocaleString('en-CA')} routes</p><nav class="network-table__route-pagination" aria-label="Route table pages"><button type="button" data-route-offset="${previous}"${start === 0 ? ' disabled' : ''}>Previous</button><button type="button" data-route-offset="${next}"${end >= total ? ' disabled' : ''}>Next</button></nav><div class="network-table__scroll"><table><thead><tr><th>Ministry</th><th>Project grouping</th><th>Program label</th><th>Named payee or aggregate</th><th>Published payee label(s)</th><th>Published amount</th><th>Lineage and interpretation</th></tr></thead><tbody>${rows}</tbody></table></div><p><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/route-to-source-lineage.csv">Download complete route-to-source lineage (CSV)</a></p>`;
 }

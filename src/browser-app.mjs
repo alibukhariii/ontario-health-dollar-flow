@@ -420,10 +420,20 @@ async function loadNetwork() {
     renderCurrentNetwork();
     elements.table.innerHTML = renderNetworkTable(contract);
     const routeTable = elements.table.querySelector('.network-table__routes');
+    const routeContent = routeTable?.querySelector('.network-table__routes-content');
+    const showRoutePage = (offset = 0, restoreFocus = false) => {
+      routeContent.innerHTML = renderNetworkRoutesTable(contract, offset);
+      routeTable.dataset.loaded = 'true';
+      if (restoreFocus) routeContent.querySelector(`[data-route-offset="${offset}"]`)?.focus();
+    };
     routeTable?.addEventListener('toggle', () => {
       if (!routeTable.open || routeTable.dataset.loaded) return;
-      routeTable.querySelector('.network-table__routes-content').innerHTML = renderNetworkRoutesTable(contract);
-      routeTable.dataset.loaded = 'true';
+      showRoutePage();
+    });
+    routeContent?.addEventListener('click', (event) => {
+      const pageButton = event.target.closest('[data-route-offset]');
+      if (!pageButton || pageButton.disabled) return;
+      showRoutePage(Number(pageButton.dataset.routeOffset), true);
     });
     elements.shell.setAttribute('aria-busy', 'false');
     bindNetworkEvents();

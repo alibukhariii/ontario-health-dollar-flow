@@ -19,7 +19,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
   await expect(page.locator('.overview-chart__axis-title')).toHaveText('Amount (billions)');
-  await expect(page.locator('#page-overview')).toContainText('$97.0B net after a −$421.0M');
+  await expect(page.locator('#page-overview')).toContainText('$97.0B net after the −$421.0M signed adjustment');
   await expect(page.locator('#page-overview .network-source')).toBeVisible();
   await expect(page.locator('#page-network .network-source')).toHaveCount(0);
   await expect(page.locator('[data-category-id]')).toHaveCount(14);
@@ -108,10 +108,15 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
   await expect(page.locator('[data-recipient-zoom-back="0"]')).toBeVisible();
 });
 
-test('search reveals recipient routes and explains Ontario Health without ranking it as a recipient', async ({ page }) => {
+test('search opens Ontario Health intermediary details and recipient routes', async ({ page }) => {
   await openNetwork(page);
   await page.locator('#recipient-search').fill('Ontario Health');
-  await expect(page.locator('[data-search-recipient]').filter({ hasText: /^Ontario Health(?:\s|$)/ })).toHaveCount(0);
+  const intermediaryResult = page.locator('[data-search-recipient]').filter({ hasText: 'Ontario Health' }).first();
+  await expect(intermediaryResult).toBeVisible();
+  await intermediaryResult.click();
+  await expect(page.locator('#intermediary-card-ontario_health')).toHaveAttribute('open', '');
+  await expect(page.locator('#intermediary-card-ontario_health')).toContainText('$47.3B in transfers');
+  await expect(page.locator('#intermediary-card-ontario_health')).toContainText('not reconciled by the sources');
   await page.locator('#recipient-search').fill('University Health Network');
   await page.locator('[data-search-recipient]').filter({ hasText: /University Health Network/ }).first().click();
   await expect(page.locator('.network-tooltip')).toBeVisible();
@@ -205,10 +210,12 @@ test('keyboard and structured alternatives support the same exploration task', a
     .toHaveAttribute('href', 'recipients/');
   const routeTable = page.locator('.network-table__routes');
   await routeTable.locator('summary').click();
-  await expect(routeTable.locator('tbody tr')).toHaveCount(3973);
-  await expect(routeTable).toContainText('Identity unresolved');
-  await expect(routeTable).toContainText('Category fallback');
-  await expect(routeTable).toContainText('Long-term care transfer payments');
+  await expect(routeTable).toContainText('Showing 1–100 of 3,973 routes');
+  await expect(routeTable.locator('tbody tr')).toHaveCount(100);
+  await routeTable.getByRole('button', { name: 'Next' }).click();
+  await expect(routeTable).toContainText('Showing 101–200 of 3,973 routes');
+  await expect(routeTable.locator('tbody tr')).toHaveCount(100);
+  await expect(routeTable).toContainText('Download complete route-to-source lineage (CSV)');
 });
 
 test('keyboard search opens an exact recipient and exposes its source rows', async ({ page }) => {
