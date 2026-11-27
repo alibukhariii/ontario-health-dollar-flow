@@ -217,13 +217,16 @@ export function layoutFundingNetwork(contract, { recipientOffset = 0, focusedCat
     ...contract.recipients.filter((row) => !intermediaryRecipients.some((node) => node.recipient_id === row.recipient_id)),
     ...intermediaryRecipients,
   ];
-  const intermediaryRoutes = intermediaryNodes.flatMap((node) => (node.incoming_routes ?? []).map((route) => ({
-    ...route,
-    recipient_id: node.recipient_id,
-    intermediary_id: node.intermediary_id,
-    program_key: route.program_key ?? `${route.ministry}␟${route.category_id}␟${route.program_label}`,
-    target_type: 'intermediary_payee',
-  })));
+  const intermediaryRoutes = intermediaryNodes.flatMap((node) => (node.incoming_routes ?? []).map((route) => {
+    const { intermediary_context: _roleContext, ...publishedPayment } = route;
+    return {
+      ...publishedPayment,
+      recipient_id: node.recipient_id,
+      intermediary_id: node.intermediary_id,
+      program_key: route.program_key ?? `${route.ministry}␟${route.category_id}␟${route.program_label}`,
+      target_type: 'intermediary_payee',
+    };
+  }));
   const allRoutes = [...(contract.named_routes ?? []), ...intermediaryRoutes];
   const programRouteAmounts = new Map();
   if (focusedProgram) {
