@@ -258,6 +258,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
       source_url: 'https://example.test/ontario-health-statements',
       athome_source_url: 'https://example.test/athome-statements',
     },
+    source: { url: 'https://example.test/public-accounts' },
   };
   const layout = network.layoutFundingNetwork(contract, {
     focusedCategoryId: 'long_term_care',
@@ -273,7 +274,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
   assert.match(html, /How intermediaries fit in/);
   assert.match(html, /Ontario Health atHome/);
   assert.match(html, /\$12/);
-  assert.match(html, /views overlap and are not amounts to add together/);
+  assert.match(html, /These figures are shown separately; do not add them to recipient payment amounts/);
   assert.match(html, /https:\/\/example\.test\/ontario-health-statements/);
   assert.match(html, /https:\/\/example\.test\/athome-statements/);
 });

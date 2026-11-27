@@ -483,7 +483,7 @@ class BuildDataTests(unittest.TestCase):
         self.assertEqual(len(crosswalk["mappings"]), 74)
         self.assertEqual(sample["seed"], 20261121)
         self.assertEqual(sample["sample_row_count"], 1027)
-        self.assertEqual(len(source_index["sources"]), 2)
+        self.assertEqual(len(source_index["sources"]), 3)
         self.assertGreater(len(hospital_category["programs"]), 0)
         self.assertGreater(len(payee_files), 2000)
         self.assertFalse((release_root / "system-map-contract.json").exists())

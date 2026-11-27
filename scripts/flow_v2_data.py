@@ -520,7 +520,9 @@ def build_category_payload(
             "source_payment_detail": program_rows[0].get("payment_detail", ""),
             "not_itemized_source_rows": [
                 payment_lineage(row) for row in program_rows
-                if row.get("recipient_class") in {"person_or_employee", "program_aggregate"}
+                # Preserve row-level lineage for published program aggregates, but do not
+                # expose individual payment rows or labels as part of the aggregate stop.
+                if row.get("recipient_class") == "program_aggregate"
                 and Decimal(row["amount_cad"]) > 0
             ],
             "adjustment_source_rows": [

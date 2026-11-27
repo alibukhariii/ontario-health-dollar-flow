@@ -65,7 +65,7 @@ test('destination page preserves programs and visually distinguishes intermediar
   assert.match(html, /Community Health Centres/);
   assert.match(html, /destination--intermediary/);
   assert.match(html, /destination--not-itemized/);
-  assert.match(html, /No published amounts/);
+  assert.match(html, /published as a program aggregate/);
   assert.doesNotMatch(html, /dotted path/i);
 });
 
@@ -97,5 +97,5 @@ test('profile page separates revenue and expense bars and has an exact empty sta
   assert.match(html, /statement-bar--revenue/);
   assert.match(html, /statement-bar--expense/);
   assert.doesNotMatch(html, /incoming-payment-route/);
-  assert.match(renderProfilePage(null), /2025–26 financial statement unavailable/);
+  assert.match(renderProfilePage(null), /Profile not available in this release/);
 });

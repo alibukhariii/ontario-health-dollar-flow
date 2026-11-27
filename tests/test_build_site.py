@@ -95,10 +95,11 @@ class BuildSiteTests(unittest.TestCase):
             program_keys = {row["program_key"] for row in network["programs"]}
             self.assertTrue(all(row["program_key"] in program_keys for row in network["default_routes"]))
             recipient_ids = {row["recipient_id"] for row in network["recipients"]}
+            recipient_ids.update(row["recipient_id"] for row in network["intermediaries"])
             self.assertTrue(network["named_routes"])
             self.assertTrue(all(row["recipient_id"] in recipient_ids for row in network["named_routes"]))
             self.assertEqual(
-                sum(Decimal(row["amount_cad"]) for row in network["named_routes"]),
+                sum(Decimal(row["amount_cad"]) for row in network["named_routes"] if row.get("payee_type") != "intermediary"),
                 Decimal(network["named_non_intermediary_amount_cad"]),
             )
             route_totals = {
@@ -122,13 +123,13 @@ class BuildSiteTests(unittest.TestCase):
             uhn_payload = json.loads((release_root / network["recipients"][0]["path"]).read_text(encoding="utf-8"))
             self.assertEqual(uhn_payload["global_rank"], 1)
             self.assertIn("How intermediaries fit in", root_html)
-            self.assertIn("Funding purposes are project groupings", root_html)
+            self.assertIn("The 14 funding purposes are project groupings", root_html)
             self.assertIn("Ontario Health atHome", root_html)
             self.assertIn("$12.0B", root_html)
             self.assertIn("$35.3B", root_html)
             self.assertIn("$47.3B", root_html)
             self.assertIn("$3.6B", root_html)
-            self.assertIn("views overlap", root_html)
+            self.assertIn("Their Public Accounts payment rows and audited financial statements are separate views", root_html)
             self.assertIn("Methodology", root_html)
             self.assertIn("Report a data error", root_html)
             self.assertIn("Corrections", root_html)

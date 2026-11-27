@@ -68,6 +68,7 @@ class CoreDatasetTests(unittest.TestCase):
             self.assertEqual(manifest["fiscal_year"], "2025-26")
             self.assertEqual(set(manifest["datasets"]), {
                 "recipient-funding-routes.csv",
+                "route-to-source-lineage.csv",
                 "organization-alias-index.csv",
                 "harmonized-financial-statements.csv",
             })

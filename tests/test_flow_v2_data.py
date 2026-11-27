@@ -220,7 +220,7 @@ class FlowV2DataTests(unittest.TestCase):
             ministry_total = sum(Decimal(row["amount_cad"]) for row in category["ministry_amounts"])
             self.assertEqual(ministry_total, Decimal(category["amount_cad"]))
 
-    def test_network_treats_intermediaries_as_reconciled_stops_not_recipients(self):
+    def test_network_shows_intermediary_payments_separately_from_downstream_amounts(self):
         rows = [
             payment(
                 "provider", 70, "Operation Of Hospitals", label_id="provider",
@@ -252,7 +252,7 @@ class FlowV2DataTests(unittest.TestCase):
         self.assertEqual(network["named_intermediary_amount_cad"], "10.00")
         self.assertEqual(network["not_itemized_to_public_recipient_cad"], "20.00")
         self.assertEqual(network["named_recipient_count"], 1)
-        self.assertNotIn("oh", {row["recipient_id"] for row in network["named_routes"]})
+        self.assertIn("oh", {row["recipient_id"] for row in network["named_routes"]})
         program = next(row for row in network["programs"] if row["label"] == "Operation Of Hospitals")
         self.assertEqual(program["intermediary_amount_cad"], "10.00")
         self.assertEqual(program["not_itemized_amount_cad"], "20.00")
@@ -270,7 +270,7 @@ class FlowV2DataTests(unittest.TestCase):
         )
         route = payee_payloads["provider"]["incoming_routes"][0]
         self.assertEqual(route["intermediary_context"]["label"], "Ontario Health")
-        self.assertEqual(route["intermediary_context"]["amount_status"], "not_separately_published")
+        self.assertEqual(route["intermediary_context"]["relationship_amount_status"], "no_amount_on_oversight_line")
 
     def test_authoritative_entity_level_overrides_a_misleading_payment_class(self):
         rows = [
@@ -304,10 +304,10 @@ class FlowV2DataTests(unittest.TestCase):
         self.assertEqual(
             payloads["sickkids"]["evidence_stops"],
             [{
-                "state": "2025–26 financial statement unavailable",
+                "state": "Profile not available in this release",
                 "source_id": "public-profile-coverage-2025-26",
                 "period": "2025-26",
-                "limitation": "No approved 2025–26 financial profile is linked to this hospital corporation.",
+                "limitation": "No reviewed profile is connected in this release. This does not mean the organization has no financial statements.",
             }],
         )
 
@@ -449,7 +449,7 @@ class FlowV2DataTests(unittest.TestCase):
             {"hospital_care", "health_capital_and_infrastructure", "mental_health_and_addictions"},
         )
         self.assertNotIn("institutional_context", payload)
-        self.assertEqual(payload["profile_status"], "no_published_amounts")
+        self.assertEqual(payload["profile_status"], "not_available_in_release")
 
     def test_actual_ledger_reconciles_to_binding_taxonomy_and_sample_fixture(self):
         public_evidence = ROOT / "data" / "input" / "payment-lines.csv"

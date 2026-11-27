@@ -164,7 +164,7 @@ test('verified organization page retains every published payee label used in its
     ],
   });
 
-  assert.match(html, /Published under/);
+  assert.match(html, /Published source names/);
   assert.match(html, /Grand River Hospital Corporation/);
   assert.match(html, /St Mary&#039;s General Hospital/);
 });
