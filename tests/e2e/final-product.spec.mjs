@@ -205,7 +205,7 @@ test('keyboard and structured alternatives support the same exploration task', a
     .toHaveAttribute('href', 'recipients/');
   const routeTable = page.locator('.network-table__routes');
   await routeTable.locator('summary').click();
-  await expect(routeTable.locator('tbody tr')).toHaveCount(3926);
+  await expect(routeTable.locator('tbody tr')).toHaveCount(3973);
   await expect(routeTable).toContainText('Identity unresolved');
   await expect(routeTable).toContainText('Category fallback');
   await expect(routeTable).toContainText('Long-term care transfer payments');

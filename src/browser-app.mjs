@@ -6,6 +6,7 @@ import {
   layoutFundingNetwork,
   renderFundingNetwork,
   renderNetworkTable,
+  renderNetworkRoutesTable,
   renderRecipientFocus,
 } from './network.mjs';
 import { renderProfilePage } from './renderers.mjs';
@@ -418,6 +419,12 @@ async function loadNetwork() {
     }
     renderCurrentNetwork();
     elements.table.innerHTML = renderNetworkTable(contract);
+    const routeTable = elements.table.querySelector('.network-table__routes');
+    routeTable?.addEventListener('toggle', () => {
+      if (!routeTable.open || routeTable.dataset.loaded) return;
+      routeTable.querySelector('.network-table__routes-content').innerHTML = renderNetworkRoutesTable(contract);
+      routeTable.dataset.loaded = 'true';
+    });
     elements.shell.setAttribute('aria-busy', 'false');
     bindNetworkEvents();
     const initialRecipient = recipientIdFromLocation();
