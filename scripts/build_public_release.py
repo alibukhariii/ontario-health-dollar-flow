@@ -134,6 +134,8 @@ def build_public_tables(site_root: Path, workspace_root: Path) -> tuple[str, dic
         "fiscal_year": overview["fiscal_year"],
     } for row in overview["categories"]]
     programs: list[dict[str, object]] = []
+    non_itemized_source_rows: list[dict[str, object]] = []
+    adjustment_source_rows: list[dict[str, object]] = []
     for category in overview["categories"]:
         payload = read_json(release_root / category["path"])
         for row in payload["programs"]:
@@ -141,8 +143,32 @@ def build_public_tables(site_root: Path, workspace_root: Path) -> tuple[str, dic
                 "program_id": row["program_id"], "category_id": category["category_id"],
                 "program_label": row["label"], "ministry": row["ministry"],
                 "payment_category": row["payment_category"], "amount_cad": row["positive_amount_cad"],
+                "program_label_status": row.get("label_status", "Source label"),
+                "source_payment_detail": row.get("source_payment_detail", ""),
                 "fiscal_year": overview["fiscal_year"], "source_url": flow_v2_data.PAYMENTS_SOURCE_URL,
             })
+            aggregate_route_id = flow_v2_data.stable_id(
+                "aggregate_route", str(overview["fiscal_year"]),
+                flow_v2_data.program_key(str(row["ministry"]), str(category["category_id"]), str(row["label"])),
+            )
+            for source_row in row.get("not_itemized_source_rows", []):
+                non_itemized_source_rows.append({
+                    "route_id": aggregate_route_id,
+                    "displayed_program_label": row["label"],
+                    "program_label_status": row.get("label_status", "Source label"),
+                    "category_id": category["category_id"],
+                    "category_label": category["label"],
+                    **source_row,
+                })
+            for source_row in row.get("adjustment_source_rows", []):
+                adjustment_source_rows.append({
+                    "route_id": flow_v2_data.stable_id("signed_adjustment", str(overview["fiscal_year"]), str(row["program_id"])),
+                    "displayed_program_label": row["label"],
+                    "program_label_status": row.get("label_status", "Source label"),
+                    "category_id": category["category_id"],
+                    "category_label": category["label"],
+                    **source_row,
+                })
 
     payees = [{
         key: row.get(key, "") for key in (
@@ -164,7 +190,9 @@ def build_public_tables(site_root: Path, workspace_root: Path) -> tuple[str, dic
         for route in payload.get("incoming_routes", []):
             routes.append({
                 "payee_id": payload["payment_label_id"], "published_payee": payload["published_label"],
-                "payee_type": payload.get("payee_type", "published payee"), **route,
+                "payee_type": payload.get("payee_type", "published payee"),
+                "identity_evidence": payload.get("identity_evidence") or ([payload["identity"]] if payload.get("identity") else []),
+                **route,
             })
         for stop in payload.get("evidence_stops", []):
             evidence_stops.append({
@@ -191,6 +219,8 @@ def build_public_tables(site_root: Path, workspace_root: Path) -> tuple[str, dic
         "payees": payees,
         "payee_aliases": aliases,
         "recipient_routes": routes,
+        "non_itemized_source_rows": non_itemized_source_rows,
+        "signed_adjustment_source_rows": adjustment_source_rows,
         "recipient_category_contributions": category_contributions,
         "financial_observations": financial,
         "sources": sources,

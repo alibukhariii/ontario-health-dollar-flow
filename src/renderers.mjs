@@ -109,10 +109,10 @@ export function renderProgramsPage(category, selectedProgramId = '') {
     }).join('')}</svg>
     <div class="programs-grid">${programs.map((program) => {
       const share = Number(program.positive_amount_cad) / denominator * 100;
-      return `<button type="button" class="program-card${program.program_id === selectedProgramId ? ' is-selected' : ''}" data-program-id="${escapeHtml(program.program_id)}" style="--program-share:${share.toFixed(6)}"><span class="program-card__bar" aria-hidden="true"></span><strong>${escapeHtml(program.label)}</strong><span>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</span></button>`;
+      return `<button type="button" class="program-card${program.program_id === selectedProgramId ? ' is-selected' : ''}" data-program-id="${escapeHtml(program.program_id)}" style="--program-share:${share.toFixed(6)}"><span class="program-card__bar" aria-hidden="true"></span><strong>${escapeHtml(program.label)}${program.label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : ''}</strong><span>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</span></button>`;
     }).join('')}</div>
     ${programs.some((program) => program.label === 'Operation Of Hospitals') ? `<aside class="program-note">${escapeHtml(HOSPITAL_OPERATIONS_NOTE)}</aside>` : ''}
-    <details class="structured-alternative"><summary>View programs as a table</summary><table><thead><tr><th>Program</th><th>Amount</th></tr></thead><tbody>${programs.map((program) => `<tr><th scope="row">${escapeHtml(program.label)}</th><td>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</td></tr>`).join('')}</tbody></table></details>
+    <details class="structured-alternative"><summary>View programs as a table</summary><table><thead><tr><th>Program</th><th>Amount</th></tr></thead><tbody>${programs.map((program) => `<tr><th scope="row">${escapeHtml(program.label)}${program.label_status === 'Category fallback' ? ' · Category fallback' : ''}</th><td>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</td></tr>`).join('')}</tbody></table></details>
   </div>`;
 }
 
@@ -168,12 +168,12 @@ export function renderDestinationsPage(category, options = {}) {
       const categoryShare = Number(destination.amount_cad) / denominator * 100;
       return `<${tag} class="destination-ribbon destination destination--${escapeHtml(destinationType)}" ${attributes} style="--category-share:${categoryShare.toFixed(6)};--destination-share:${categoryShare.toFixed(6)}">
         <span class="destination-ribbon__line" aria-hidden="true"></span>
-        <span class="destination-ribbon__text"><strong>${escapeHtml(destination.label)}</strong><span>${escapeHtml(formatCad(destination.amount_cad, { compact: true }))}</span>${selectable ? '' : '<small>No published amounts</small>'}</span>
+        <span class="destination-ribbon__text"><strong>${escapeHtml(destination.label)}</strong><span>${escapeHtml(formatCad(destination.amount_cad, { compact: true }))}</span>${selectable ? '' : '<small>Not itemized to named recipients; published as a program aggregate</small>'}</span>
       </${tag}>`;
     }).join('');
     return `<section class="program-branch" style="--category-share:${programShare.toFixed(6)}">
       <span class="program-branch__line" aria-hidden="true"></span>
-      <div class="program-node"><small>Official program</small><strong>${escapeHtml(program.label)}</strong><span>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</span></div>
+      <div class="program-node"><small>Program name${program.label_status === 'Category fallback' ? ' · Category fallback' : ''}</small><strong>${escapeHtml(program.label)}</strong><span>${escapeHtml(formatCad(program.positive_amount_cad, { compact: true }))}</span></div>
       <div class="program-destinations">${destinationRows}</div>
     </section>`;
   }).join('');
@@ -257,19 +257,22 @@ export function renderPayeePage(payee, intermediary = null, options = {}) {
     ? `No. ${Number(payee.global_rank).toLocaleString('en-CA')} among named payees`
     : '';
   const sourceLabels = (payee.published_labels ?? []).filter((label) => label !== payee.published_label);
+  const sourceEvidence = payee.identity_evidence ?? (payee.identity ? [payee.identity] : []);
   return `<div class="payee-flow">
     ${options.programLabel ? `<button type="button" class="back-to-program" data-back-to-program>Back to recipients in ${escapeHtml(options.programLabel)}</button>` : ''}
     ${rankLabel ? `<p class="payee-global-rank">${escapeHtml(rankLabel)}</p>` : ''}
     <h2 class="payee-received-title"><strong>${escapeHtml(payee.published_label)}</strong> received <strong>${escapeHtml(formatCad(payee.published_payment_total_cad ?? payee.total_amount_cad, { compact: true }))}</strong> in payments published by Ontario’s health ministries.</h2>
     <p class="payee-type">${escapeHtml(payee.payee_type ?? payee.destination_type ?? 'published payee')}</p>
-    ${sourceLabels.length > 1 ? `<p class="payee-source-labels">Published under: ${sourceLabels.map(escapeHtml).join(' · ')}</p>` : ''}
+    ${sourceLabels.length ? `<p class="payee-source-labels">Published source name${sourceLabels.length === 1 ? '' : 's'}: ${sourceLabels.map(escapeHtml).join(' · ')}</p>` : ''}
+    ${sourceEvidence.length ? `<p class="payee-identity-evidence">Canonical ranking name supported by reviewed identity evidence${sourceEvidence.map((item) => item.source_id).filter(Boolean).length ? ` (${sourceEvidence.map((item) => escapeHtml(item.source_id)).filter(Boolean).join('; ')})` : ''}. Source-native payee names remain in the records below.</p>` : payee.identity_status === 'unresolved' ? '<p class="payee-identity-evidence">Identity unresolved; this published label is kept separate.</p>' : ''}
     <div class="payee-flow__routes">
       ${routes.map((route) => `<div class="incoming-payment-route${options.programLabel && route.program_label !== options.programLabel ? ' is-context' : ' is-selected'}" style="--route-share:${Number(route.share_percent ?? Number(route.amount_cad) / total * 100).toFixed(6)}">
         <span class="incoming-route__ministry">${escapeHtml(ministryLabel(route.ministry))}</span>
         <span class="incoming-route__category">${escapeHtml(route.category_label)}</span>
-        <span class="incoming-route__program">${escapeHtml(route.program_label)}</span>
+        <span class="incoming-route__program">${escapeHtml(route.program_label)}${route.program_label_status === 'Category fallback' ? '<small class="fallback-label">Category fallback</small>' : ''}</span>
         <span class="incoming-route__ribbon" aria-hidden="true"></span>
         <strong>${escapeHtml(formatCad(route.amount_cad, { compact: true }))}</strong>
+        ${(route.source_rows ?? []).length ? `<details class="route-source-records"><summary>View source record(s) · ${(route.source_rows ?? []).length}</summary><ul>${route.source_rows.map((row) => `<li><span>Public Accounts row ${escapeHtml(row.source_row_number)} · ${escapeHtml(row.source_payee_label)}</span><strong>${escapeHtml(formatCad(row.amount_cad, { compact: true }))}</strong><small>${escapeHtml(row.source_payment_category)} · ${escapeHtml(row.source_payment_detail || 'No Value')}</small></li>`).join('')}</ul><a href="${escapeHtml(route.source?.url ?? 'https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments')}" target="_blank" rel="noopener">Open the source schedule</a> · <a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/route-to-source-lineage.csv" target="_blank" rel="noopener">Download route-to-source lineage</a></details>` : ''}
       </div>`).join('')}
     </div>
     <button type="button" class="payee-junction"><strong>${escapeHtml(payee.published_label)}</strong><span>${escapeHtml(formatCad(payee.published_payment_total_cad ?? payee.total_amount_cad, { compact: true }))}</span></button>
@@ -292,8 +295,8 @@ function statementBar(title, total, components = []) {
   </section>`;
 }
 
-export function renderProfilePage(profile, unavailableReason = '2025–26 financial statement unavailable') {
-  if (!profile) return `<aside class="profile-evidence-stop evidence-stop"><strong>${escapeHtml(unavailableReason)}</strong><span>The published payment trail ends here.</span></aside>`;
+export function renderProfilePage(profile, unavailableReason = 'Profile not available in this release') {
+  if (!profile) return `<aside class="profile-evidence-stop evidence-stop"><strong>${escapeHtml(unavailableReason || 'Profile not available in this release')}</strong><span>This does not mean the organization has no financial statements.</span></aside>`;
   const revenue = statementBar('Revenue', profile.revenue_total_cad, profile.revenue_components);
   const expenses = statementBar('Expenses', profile.expense_total_cad, profile.expense_components);
   if (!revenue && !expenses) return '<p class="no-published-amounts">No published amounts</p>';

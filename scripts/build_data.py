@@ -1562,6 +1562,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         observations_path = public_input_root / "financial-observations.csv"
         snapshots_path = public_input_root / "source-snapshots.csv"
         intermediary_path = public_input_root / "intermediary-outflows.csv"
+        intermediary_financial_path = public_input_root / "intermediary-financial-totals.csv"
         context_snapshots_path = None
     elif private_evidence_root.exists() and (model_root / "current.json").exists():
         pointer = read_json(model_root / "current.json")
@@ -1572,6 +1573,7 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         snapshots_path = private_evidence_root / "financial-extraction" / "source-snapshots.csv"
         context_snapshots_path = private_evidence_root / "financial-extraction" / "context-source-snapshots.csv"
         intermediary_path = private_evidence_root / "financial-extraction" / "intermediary-outflows.csv"
+        intermediary_financial_path = None
     else:
         raise FileNotFoundError("No private evidence workspace or repository public inputs are available")
     payments = read_csv(payment_path)
@@ -1613,6 +1615,11 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
     intermediary_payloads = flow_v2_data.build_intermediary_payloads(
         fiscal_year,
         read_csv(intermediary_path),
+    )
+    intermediary_financial_totals = (
+        read_csv(intermediary_financial_path)
+        if intermediary_financial_path and intermediary_financial_path.exists()
+        else []
     )
     intermediary_by_label = {
         payload["published_label_match"].strip().casefold(): (intermediary_id, payload)
@@ -1667,6 +1674,8 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
         payee_payloads,
         organization_payloads,
         intermediary_payloads,
+        profiles_by_label,
+        intermediary_financial_totals=intermediary_financial_totals,
     )
     taxonomy_crosswalk = flow_v2_data.build_crosswalk(payments)
     sample_fixture_path = public_input_root / "taxonomy-sample-fixture.json"
@@ -1712,20 +1721,36 @@ def build_release(workspace_root: Path, output_root: Path) -> dict[str, object]:
             "fiscal_year": fiscal_year,
             **profile,
         })
+    athome_statement_source = next(
+        (row for row in intermediary_financial_totals if row.get("intermediary_id") == "ontario_health_athome" and row.get("fiscal_year") == fiscal_year),
+        None,
+    )
+    statement_sources = [
+        {
+            "label": "Ontario Public Accounts 2025–26 Detailed Schedules of Payments",
+            "url": "https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments",
+            "role": "Published payment amounts, programs and payee labels",
+        },
+        {
+            "label": "Published financial statements",
+            "url": "https://www.ontario.ca/page/public-accounts-ontario-2025-26",
+            "role": "Approved recipient revenue and expense profiles where available",
+        },
+    ]
+    if athome_statement_source:
+        statement_sources.append({
+            "label": str(athome_statement_source.get("source_version") or "Ontario Health atHome audited financial statements"),
+            "url": str(athome_statement_source.get("source_url", "")),
+            "role": "Source for Ontario Health atHome agency-wide revenue and expense totals; not a recipient-level allocation",
+            "reporting_period": str(athome_statement_source.get("reporting_period", fiscal_year)),
+            "retrieved_at": str(athome_statement_source.get("source_retrieved_at", "")),
+            "sha256": str(athome_statement_source.get("source_sha256", "")),
+            "page": str(athome_statement_source.get("source_page", "")),
+            "limitation": str(athome_statement_source.get("source_limitation", "")),
+        })
     write_json(release_dir / "source-index.json", {
         "schema_version": "2.0.0",
-        "sources": [
-            {
-                "label": "Ontario Public Accounts 2025–26 Detailed Schedules of Payments",
-                "url": "https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments",
-                "role": "Published payment amounts, programs and payee labels",
-            },
-            {
-                "label": "Published financial statements",
-                "url": "https://www.ontario.ca/page/public-accounts-ontario-2025-26",
-                "role": "Approved recipient revenue and expense profiles where available",
-            },
-        ],
+        "sources": statement_sources,
     })
     write_json(release_dir / "release.json", release)
     flow_bundle_digest = hashlib.sha256()

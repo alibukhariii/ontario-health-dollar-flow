@@ -5,13 +5,18 @@
   "datasets": {
     "recipient-funding-routes.csv": {
       "rows": 3926,
-      "bytes": 2086978,
-      "sha256": "af90f7bb0eeb274fd9b8437be2f446ca30e2a4876612167fd1ce4bfa9ce11042"
+      "bytes": 2285166,
+      "sha256": "baaaa962a72ddb73eaeb5c8259de7f024274b0a7a6c99e6033e5a58429dc0a05"
+    },
+    "route-to-source-lineage.csv": {
+      "rows": 3989,
+      "bytes": 2066591,
+      "sha256": "b3e23a46488eea52a1af128e997859af95d0dee2ce57cf4c9480dee9d6cc5f12"
     },
     "organization-alias-index.csv": {
       "rows": 2084,
-      "bytes": 375584,
-      "sha256": "32f5f327744e77c2327845b383178a415135a987917e2808778add11054c214f"
+      "bytes": 375574,
+      "sha256": "3bd6c9c1ac10403d51a0ca61a90d80c5fc87d4bee63b327daefee30205e5dfa5"
     },
     "harmonized-financial-statements.csv": {
       "rows": 4995,

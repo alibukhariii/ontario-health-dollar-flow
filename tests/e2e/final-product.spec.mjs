@@ -13,9 +13,9 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.landing__meta')).toContainText('Data for FY 2025–26');
   await expect(page.locator('.landing__meta')).toContainText('Created for Quantika by Ali Bukhari');
   await expect(page.locator('#page-overview')).toContainText('Ontario’s Ministry of Health and Ministry of Long-Term Care paid $97.4B* across the positive payment entries published for 2025–26.');
-  await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,078 named organizations');
-  await expect(page.locator('#page-overview')).not.toContainText('$12.1B');
-  await expect(page.locator('#page-overview')).toContainText('$32.3B (33.1%) was not itemized in published records.');
+  await expect(page.locator('#page-overview')).toContainText('$65.2B is listed across 2,079 named payees');
+  await expect(page.locator('#page-overview')).toContainText('$12.070B of the named-payee total');
+  await expect(page.locator('#page-overview')).toContainText('$32.251B (33.1%) is accounted for as program-level aggregate payments');
   await expect(page.locator('.overview-chart__title')).toHaveText('The top 10 recipients were');
   await expect(page.locator('[data-overview-recipient]')).toHaveCount(10);
   await expect(page.locator('.overview-chart__axis-title')).toHaveText('Amount (billions)');
@@ -29,10 +29,19 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.recipient-node--not-itemized')).toHaveCount(0);
   await expect(page.locator('.recipient-coverage-note')).toContainText('How intermediaries fit in');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$12.0B');
+  await expect(page.locator('.intermediary-node')).toHaveCount(3);
+  await expect(page.locator('.intermediary-figures')).toContainText('Accerta');
+  await expect(page.locator('.intermediary-figures')).toContainText('$63.0M');
+  await expect(page.locator('.intermediary-figures')).toContainText('not reconciled by the sources');
+  await expect(page.locator('.intermediary-figures')).toContainText('$4.8B');
+  await expect(page.locator('.intermediary-figures')).toContainText('Reported revenue');
+  await expect(page.locator('.network-legend')).toContainText('Dotted styling marks documented oversight');
+  await expect(page.locator('.network-legend')).toContainText('does not mean money passed through an intermediary');
+  await expect(page.locator('.aggregate-payment-panel')).toContainText('across 47 programs');
+  await expect(page.locator('.aggregate-payment-panel')).toContainText('$32.3B');
   await expect(page.locator('.recipient-coverage-note')).toContainText('reports $48.2B in expenses');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$35.3B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('views overlap and are not amounts to add together');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health atHome');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Methodology');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Report a data error');
@@ -108,6 +117,8 @@ test('search reveals recipient routes and explains Ontario Health without rankin
   await expect(page.locator('.network-tooltip')).toBeVisible();
   await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
   await expect(page.locator('.network-tooltip')).not.toContainText('Ontario Health');
+  await expect(page.locator('.network-tooltip')).toContainText('Download route-to-source lineage (CSV)');
+  await expect(page.locator('.tooltip-source-records summary').first()).toContainText('View source record(s)');
   await expect(page.locator('#active-routes .active-route--administered')).not.toHaveCount(0);
   const renderedRouteCount = await page.locator('#active-routes .active-route').count();
   const listedRouteCount = await page.locator('.network-tooltip > ol > li, .network-tooltip__more ol > li').count();
@@ -120,6 +131,9 @@ test('search reveals recipient routes and explains Ontario Health without rankin
   await expect(page.locator('[data-close-tooltip]')).toBeVisible();
   await page.locator('[data-close-tooltip]').click();
   await expect(page.locator('.network-tooltip')).toBeHidden();
+  await page.locator('#recipient-search').fill('Ihf');
+  await page.locator('[data-search-recipient]').filter({ hasText: /^Ihf/ }).click();
+  await expect(page.locator('.network-tooltip')).toContainText('Identity unresolved');
 });
 
 test('mobile uses an expandable list instead of a horizontally scrolling radial canvas', async ({ page }, testInfo) => {
@@ -189,6 +203,21 @@ test('keyboard and structured alternatives support the same exploration task', a
   await expect(page.locator('.network-table table').first().locator('tbody tr')).toHaveCount(14);
   await expect(page.getByRole('link', { name: /Browse all .* named organizations/ }))
     .toHaveAttribute('href', 'recipients/');
+  const routeTable = page.locator('.network-table__routes');
+  await routeTable.locator('summary').click();
+  await expect(routeTable.locator('tbody tr')).toHaveCount(3973);
+  await expect(routeTable).toContainText('Identity unresolved');
+  await expect(routeTable).toContainText('Category fallback');
+  await expect(routeTable).toContainText('Long-term care transfer payments');
+});
+
+test('keyboard search opens an exact recipient and exposes its source rows', async ({ page }) => {
+  await openNetwork(page);
+  const search = page.locator('#recipient-search');
+  await search.fill('University Health Network');
+  await search.press('Enter');
+  await expect(page.locator('.network-tooltip')).toContainText('University Health Network');
+  await expect(page.locator('.tooltip-source-records summary').first()).toContainText('View source record(s)');
 });
 
 test('recipient deep links contain useful HTML when JavaScript is disabled', async ({ browser, request, baseURL }) => {

@@ -10,7 +10,7 @@
     {
       "filename": "entity-links-reviewed.csv",
       "rows": 145,
-      "sha256": "814eae58846903ee554438d6dcc24a7d4c039c20e8f069e2dee498a70556f0fd"
+      "sha256": "b6b170077dfac8c403fffb5264bd2c7f2da9df38126cec01034764b161f6c5cf"
     },
     {
       "filename": "financial-observations.csv",
@@ -31,6 +31,11 @@
       "filename": "taxonomy-sample-fixture.json",
       "rows": null,
       "sha256": "4afcc48c65917c9e8efc15e53c15ff376c21cabda66702b727c020dde7113eab"
+    },
+    {
+      "filename": "intermediary-financial-totals.csv",
+      "rows": 1,
+      "sha256": "84d31352be3ca0373e670f79a9d723a822bcba6f30f2c5b7756d2030dcda9aa8"
     }
   ]
 }

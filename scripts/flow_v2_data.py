@@ -112,12 +112,15 @@ def intermediary_context(program_label: str) -> dict[str, str] | None:
     context = INTERMEDIARY_PROGRAM_CONTEXT.get(program_label)
     if not context:
         return None
+    verb = "have" if " and " in context["label"] else "has"
     return {
         **context,
-        "amount_status": "not_separately_published",
+        "relationship_type": "documented_oversight",
+        "relationship_amount_status": "no_amount_on_oversight_line",
         "explanation": (
-            f"{context['label']} has a documented {context['role']} for this program. "
-            "The share of this published payee amount that passed through the intermediary is not separately published."
+            f"{context['label']} {verb} a documented {context['role']} for this program. "
+            "The dotted line marks that oversight relationship; it is not another payment or a complete allocation. "
+            "The amount shown is the ministry payment published for the named payee."
         ),
     }
 
@@ -306,6 +309,29 @@ def display_program_label(row: dict[str, str]) -> str:
     return detail
 
 
+def program_label_status(row: dict[str, str]) -> str:
+    """Flag program names substituted when Public Accounts detail is No Value."""
+    detail = str(row.get("payment_detail", "")).strip()
+    return "Category fallback" if not detail or detail == "No Value" else "Source label"
+
+
+def payment_lineage(row: dict[str, str]) -> dict[str, str]:
+    """Retain source-native fields for every payment row behind a displayed route."""
+    return {
+        "payment_line_id": str(row.get("payment_line_id", "")),
+        "source_row_number": str(row.get("source_row_number", "")),
+        "source_version_id": str(row.get("source_version_id", "")),
+        "source_url": PAYMENTS_SOURCE_URL,
+        "fiscal_year": str(row.get("fiscal_year", "")),
+        "ministry": str(row.get("ministry", "")),
+        "source_payment_category": str(row.get("payment_category", "")),
+        "source_payment_detail": str(row.get("payment_detail", "")),
+        "source_payee_label": str(row.get("recipient_label_raw", "")),
+        "recipient_class": str(row.get("recipient_class", "")),
+        "amount_cad": str(row.get("amount_cad", "")),
+    }
+
+
 def build_overview(fiscal_year: str, payments: Iterable[dict[str, str]]) -> dict[str, object]:
     rows = [
         row for row in payments
@@ -490,6 +516,16 @@ def build_category_payload(
             "ministry": ministry,
             "payment_category": payment_category,
             "label": label,
+            "label_status": program_label_status(program_rows[0]),
+            "source_payment_detail": program_rows[0].get("payment_detail", ""),
+            "not_itemized_source_rows": [
+                payment_lineage(row) for row in program_rows
+                if row.get("recipient_class") in {"person_or_employee", "program_aggregate"}
+                and Decimal(row["amount_cad"]) > 0
+            ],
+            "adjustment_source_rows": [
+                payment_lineage(row) for row in program_rows if Decimal(row["amount_cad"]) < 0
+            ],
             "positive_amount_cad": money(positive),
             "adjustment_cad": money(adjustment),
             "net_amount_cad": money(positive + adjustment),
@@ -551,9 +587,12 @@ def build_payee_payloads(
     payloads = {}
     for label_id, rows in grouped.items():
         routes: dict[tuple[str, str, str], Decimal] = defaultdict(Decimal)
+        route_rows: dict[tuple[str, str, str], list[dict[str, str]]] = defaultdict(list)
         for row in rows:
             category_id = classify_payment(row)
-            routes[(row["ministry"], category_id, display_program_label(row))] += Decimal(row["amount_cad"])
+            key = (row["ministry"], category_id, display_program_label(row))
+            routes[key] += Decimal(row["amount_cad"])
+            route_rows[key].append(row)
         incoming = [
             {
                 "route_id": stable_id("route", fiscal_year, label_id, ministry, category_id, program),
@@ -561,7 +600,13 @@ def build_payee_payloads(
                 "category_id": category_id,
                 "category_label": CATEGORY_LABELS[category_id],
                 "program_label": program,
+                "program_label_status": program_label_status(route_rows[(ministry, category_id, program)][0]),
+                "source_payment_detail": route_rows[(ministry, category_id, program)][0].get("payment_detail", ""),
                 "amount_cad": money(amount),
+                "source_rows": [payment_lineage(row) for row in sorted(
+                    route_rows[(ministry, category_id, program)],
+                    key=lambda source_row: int(source_row.get("source_row_number") or 0),
+                )],
                 **({"intermediary_context": context} if (context := intermediary_context(program)) else {}),
                 "source": payment_source(fiscal_year, rows[0].get("source_version_id") or "pa-payments-2025-26-r3ab37bb7"),
             }
@@ -575,26 +620,18 @@ def build_payee_payloads(
         evidence_stops = []
         if not link:
             evidence_stops.append({
-                "state": "Legal identity not resolved",
+                "state": "Identity unresolved" if any(row.get("recipient_class") == "unresolved_recipient" for row in rows) else "Published payee label retained",
                 "source_id": rows[0].get("source_version_id") or "pa-payments-2025-26-r3ab37bb7",
                 "period": fiscal_year,
-                "limitation": "The interface preserves the exact published payee label and does not merge it with another organization.",
+                "limitation": "The published label is kept separate because an authoritative identity match has not been established." if any(row.get("recipient_class") == "unresolved_recipient" for row in rows) else "The interface preserves the exact published payee label and does not merge it with another organization.",
             })
         if not profile:
-            if payee_type == "hospital corporation":
-                evidence_stops.append({
-                    "state": "2025–26 financial statement unavailable",
-                    "source_id": "public-profile-coverage-2025-26",
-                    "period": fiscal_year,
-                    "limitation": "No approved 2025–26 financial profile is linked to this hospital corporation.",
-                })
-            else:
-                evidence_stops.append({
-                    "state": "Financial profile not collected in the current scope",
-                    "source_id": "public-profile-coverage-2025-26",
-                    "period": fiscal_year,
-                    "limitation": "The current financial-profile workstream covers hospitals and the approved intermediary statements.",
-                })
+            evidence_stops.append({
+                "state": "Profile not available in this release",
+                "source_id": "public-profile-coverage-2025-26",
+                "period": fiscal_year,
+                "limitation": "No reviewed profile is connected in this release. This does not mean the organization has no financial statements.",
+            })
         payload = {
             "schema_version": "2.0.0",
             "fiscal_year": fiscal_year,
@@ -609,9 +646,17 @@ def build_payee_payloads(
             "identity": ({
                 "entity_id": link.get("entity_id"),
                 "authoritative_name": link.get("authoritative_name"),
+                "source_id": link.get("source_id"),
+                "relationship_type": link.get("relationship_type"),
+                "review_status": link.get("review_status"),
+                "effective_start": link.get("effective_start"),
+                "effective_end": link.get("effective_end"),
             } if link else None),
-            "identity_status": "reviewed_resolved" if link else "published_label_only",
-            "profile_status": "available" if profile else "no_published_amounts",
+            "identity_status": "reviewed_resolved" if link else (
+                "unresolved" if any(row.get("recipient_class") == "unresolved_recipient" for row in rows)
+                else "published_label_only"
+            ),
+            "profile_status": "available" if profile else "not_available_in_release",
             "profile_path": f"profiles/{label_id}.json" if profile else None,
             "evidence_stops": evidence_stops,
             "source": payment_source(fiscal_year, rows[0].get("source_version_id") or "pa-payments-2025-26-r3ab37bb7"),
@@ -726,20 +771,30 @@ def build_organization_payloads(
             continue
 
         routes: dict[tuple[str, str, str], Decimal] = defaultdict(Decimal)
+        route_sources: dict[tuple[str, str, str], list[dict[str, object]]] = defaultdict(list)
         source_payloads = [payee_payloads[label_id] for label_id in label_ids]
         for payload in source_payloads:
             for route in payload.get("incoming_routes", []):
                 key = (str(route["ministry"]), str(route["category_id"]), str(route["program_label"]))
                 routes[key] += Decimal(str(route["amount_cad"]))
-        incoming = [{
-            "route_id": stable_id("organization_route", str(row["payment_label_id"]), ministry, category_id, program),
-            "ministry": ministry,
-            "category_id": category_id,
-            "category_label": CATEGORY_LABELS[category_id],
-            "program_label": program,
-            "amount_cad": money(amount),
-            **({"intermediary_context": context} if (context := intermediary_context(program)) else {}),
-        } for (ministry, category_id, program), amount in routes.items()]
+                route_sources[key].append(route)
+        incoming = []
+        for (ministry, category_id, program), amount in routes.items():
+            source_routes = route_sources[(ministry, category_id, program)]
+            source_rows = [source_row for source_route in source_routes for source_row in source_route.get("source_rows", [])]
+            source_rows.sort(key=lambda source_row: (str(source_row.get("source_payee_label", "")), int(source_row.get("source_row_number") or 0)))
+            incoming.append({
+                "route_id": stable_id("organization_route", str(row["payment_label_id"]), ministry, category_id, program),
+                "ministry": ministry,
+                "category_id": category_id,
+                "category_label": CATEGORY_LABELS[category_id],
+                "program_label": program,
+                "program_label_status": source_routes[0].get("program_label_status", "Source label"),
+                "source_payment_detail": source_routes[0].get("source_payment_detail", ""),
+                "amount_cad": money(amount),
+                "source_rows": source_rows,
+                **({"intermediary_context": context} if (context := intermediary_context(program)) else {}),
+            })
         incoming.sort(key=lambda item: (-Decimal(str(item["amount_cad"])), item["category_label"], item["program_label"]))
         profile_paths = sorted({
             str(payload["profile_path"])
@@ -764,13 +819,16 @@ def build_organization_payloads(
                 "authoritative_name": row["authoritative_name"],
             },
             "identity_status": "reviewed_resolved",
+            "identity_evidence": [
+                payload.get("identity") for payload in source_payloads if payload.get("identity")
+            ],
             "profile_status": "available" if profile_paths else "no_published_amounts",
             "profile_path": profile_paths[0] if profile_paths else None,
             "evidence_stops": [
                 stop
                 for source_payload in source_payloads
                 for stop in source_payload.get("evidence_stops", [])
-                if stop.get("state") != "Legal identity not resolved"
+                if stop.get("state") != "Published payee label retained"
             ],
             "source": source_payloads[0].get("source", payment_source(str(source_payloads[0]["fiscal_year"]))),
         }
@@ -929,6 +987,8 @@ def build_network_overview(
     payee_payloads: dict[str, dict[str, object]],
     organization_payloads: dict[str, dict[str, object]],
     intermediary_payloads: dict[str, dict[str, object]] | None = None,
+    profiles_by_label: dict[str, dict[str, object]] | None = None,
+    intermediary_financial_totals: list[dict[str, str]] | None = None,
     *,
     labelled_count: int = 50,
 ) -> dict[str, object]:
@@ -963,11 +1023,15 @@ def build_network_overview(
                 "program_key": program_key(ministry, category_id, str(row["label"])),
                 "program_id": row["program_id"],
                 "label": row["label"],
+                "label_status": row.get("label_status", "Source label"),
+                "source_payment_detail": row.get("source_payment_detail", ""),
                 "category_id": category_id,
                 "ministry": ministry,
                 "amount_cad": money(amount),
                 "not_itemized_amount_cad": money(not_itemized_amount),
                 "intermediary_amount_cad": money(intermediary_amount),
+                "not_itemized_source_rows": row.get("not_itemized_source_rows", []),
+                "adjustment_source_rows": row.get("adjustment_source_rows", []),
             })
         categories.append({
             "category_id": category_id,
@@ -998,6 +1062,7 @@ def build_network_overview(
             "label": convergence_row["display_label"],
             "payee_type": convergence_row["payee_type"],
             "destination_type": convergence_row["destination_type"],
+            "identity_status": convergence_row.get("identity_status", "published_label_only"),
             "amount_cad": convergence_row["published_payment_total_cad"],
             "global_rank": convergence_row.get("recipient_rank", convergence_row["global_rank"]),
             "path": convergence_row["path"],
@@ -1008,10 +1073,17 @@ def build_network_overview(
         for route in payload.get("incoming_routes", []):
             named_routes.append({
                 "recipient_id": recipient_id,
-                "program_key": program_key(
-                    str(route["ministry"]), str(route["category_id"]), str(route["program_label"]),
-                ),
+                "route_id": str(route.get("route_id", "")),
+                "ministry": str(route["ministry"]),
+                "category_id": str(route["category_id"]),
+                "category_label": str(route.get("category_label", CATEGORY_LABELS[str(route["category_id"])])),
+                "program_label": str(route["program_label"]),
+                "program_label_status": str(route.get("program_label_status", "Source label")),
+                "source_payment_detail": str(route.get("source_payment_detail", "")),
+                "program_key": program_key(str(route["ministry"]), str(route["category_id"]), str(route["program_label"])),
                 "amount_cad": route["amount_cad"],
+                "source_rows": route.get("source_rows", []),
+                "source": route.get("source", {}),
                 **({"intermediary_context": route["intermediary_context"]} if route.get("intermediary_context") else {}),
             })
         if label_by_default:
@@ -1075,6 +1147,13 @@ def build_network_overview(
         raise ValueError("Named organizations and intermediaries do not reconcile to named destinations")
 
     intermediary_payloads = intermediary_payloads or {}
+    profiles_by_label = profiles_by_label or {}
+    intermediary_financial_totals = intermediary_financial_totals or []
+    intermediary_financial_by_id = {
+        str(row.get("intermediary_id", "")): row
+        for row in intermediary_financial_totals
+        if str(row.get("fiscal_year", "")) == str(overview["fiscal_year"])
+    }
     ontario_health_payload = intermediary_payloads.get("ontario_health", {})
     athome_payload = intermediary_payloads.get("ontario_health_athome", {})
     oh_groups = {str(row.get("group_id")): Decimal(str(row.get("amount_cad", "0"))) for row in ontario_health_payload.get("groups", [])}
@@ -1098,14 +1177,121 @@ def build_network_overview(
         "ontario_health_athome_reported_expense_total_cad": str(athome_payload.get("reported_expense_total_cad", "0.00")),
         "ontario_health_athome_contracted_services_cad": money(athome_groups.get("contracted_services", Decimal("0"))),
         "ontario_health_athome_own_operations_cad": money(athome_groups.get("own_operations", Decimal("0"))),
+        "ontario_health_athome_revenue_total_cad": str(
+            intermediary_financial_by_id.get("ontario_health_athome", {}).get("revenue_total_cad", "")
+        ),
+        "ontario_health_athome_direct_ministry_amount_cad": money(sum(
+            (Decimal(str(row["published_payment_total_cad"])) for row in convergence["intermediaries"]
+             if str(row.get("display_label", "")).strip().casefold() == "ontario health athome"), Decimal("0")
+        )),
+        "accerta_public_accounts_amount_cad": money(sum(
+            (Decimal(str(row["published_payment_total_cad"])) for row in convergence["intermediaries"]
+             if "accerta" in str(row.get("display_label", "")).strip().casefold()), Decimal("0")
+        )),
+        "ontario_health_athome_transfer_from_oh_cad": money(sum(
+            (Decimal(str(component.get("amount_cad", "0")))
+             for group in ontario_health_payload.get("groups", [])
+             for component in group.get("components", [])
+             if component.get("target_intermediary_id") == "ontario_health_athome"), Decimal("0")
+        )),
         "recipient_crosswalk_amount_cad": "0.00",
         "source_url": str(ontario_health_payload.get("source", {}).get("url") or ONTARIO_HEALTH_STATEMENT_URL),
         "athome_source_url": str(athome_payload.get("source", {}).get("url") or ONTARIO_HEALTH_ATHOME_STATEMENT_URL),
         "explanation": (
-            "Ontario Health is shown as an explanatory intermediary, not ranked as a recipient. "
-            "Its audited transfers and operations are a separate reporting frame and are not added to the published-payment total."
+            "Three named intermediaries appear in a separate diagram layer and are not included in the non-intermediary recipient ranking. "
+            "Their Public Accounts payments and audited statement amounts are labeled by source and are not added together."
         ),
     }
+
+    intermediary_nodes = []
+    for row in convergence["intermediaries"]:
+        label = str(row.get("display_label", row.get("published_label", "")))
+        payload = payee_payloads.get(str(row["payment_label_id"]), {})
+        if payload.get("identity_status") == "unresolved":
+            label = str(row.get("published_label", label))
+        intermediary_id = (
+            "ontario_health" if label.casefold() == "ontario health" else
+            "ontario_health_athome" if label.casefold() == "ontario health athome" else
+            "accerta"
+        )
+        athome_financial_total = intermediary_financial_by_id.get("ontario_health_athome", {})
+        athome_profile = {
+            "reporting_entity": "Ontario Health atHome",
+            "reporting_scope": "Agency-wide 2025–26 audited statement. Revenue and expense totals are not a recipient-level allocation.",
+            "fiscal_year": overview["fiscal_year"],
+            "revenue_total_cad": str(athome_financial_total.get("revenue_total_cad", "")),
+            "revenue_components": [],
+            "expense_total_cad": str(athome_financial_total.get("expense_total_cad", athome_payload.get("reported_expense_total_cad", "0.00"))),
+            "expense_components": [
+                {"source_label": str(group.get("group_label", "")), "amount_cad": str(group.get("amount_cad", "0.00"))}
+                for group in athome_payload.get("groups", [])
+            ],
+            "source": {
+                "url": str(athome_financial_total.get("source_url") or athome_payload.get("source", {}).get("url") or ONTARIO_HEALTH_ATHOME_STATEMENT_URL),
+                "sha256": str(athome_financial_total.get("source_sha256", "")),
+                "version": str(athome_financial_total.get("source_version", "")),
+                "retrieved_at": str(athome_financial_total.get("source_retrieved_at", "")),
+                "page": str(athome_financial_total.get("source_page", "")),
+                "period": overview["fiscal_year"],
+                "limitation": str(athome_financial_total.get("source_limitation", "")),
+            },
+        } if intermediary_id == "ontario_health_athome" else None
+        intermediary_nodes.append({
+            "recipient_id": str(row["payment_label_id"]),
+            "label": label,
+            "published_label": str(row.get("published_label", label)),
+            "payee_type": "intermediary",
+            "amount_cad": str(row["published_payment_total_cad"]),
+            "global_rank": int(row.get("global_rank", 0)),
+            "path": str(row.get("path", "")),
+            "profile_path": payload.get("profile_path"),
+            "financial_profile": profiles_by_label.get(str(row["payment_label_id"])) or athome_profile,
+            "intermediary_path": payload.get("intermediary_path"),
+            "incoming_routes": payload.get("incoming_routes", []),
+            "identity_status": str(row.get("identity_status", "published_label_only")),
+            "intermediary_id": intermediary_id,
+            "outflows": intermediary_payloads.get(intermediary_id, {}).get("groups", []),
+            "outflow_total_cad": intermediary_payloads.get(intermediary_id, {}).get("reported_expense_total_cad"),
+        })
+    intermediary_nodes.sort(key=lambda item: -Decimal(str(item["amount_cad"])))
+
+    intermediary_named_routes = []
+    for intermediary in intermediary_nodes:
+        for route in intermediary.get("incoming_routes", []):
+            intermediary_named_routes.append({
+                "recipient_id": str(intermediary["recipient_id"]),
+                "recipient_label": str(intermediary["label"]),
+                "payee_type": "intermediary",
+                "route_id": str(route.get("route_id", "")),
+                "ministry": str(route["ministry"]),
+                "category_id": str(route["category_id"]),
+                "category_label": str(route.get("category_label", CATEGORY_LABELS[str(route["category_id"])])),
+                "program_label": str(route["program_label"]),
+                "program_label_status": str(route.get("program_label_status", "Source label")),
+                "source_payment_detail": str(route.get("source_payment_detail", "")),
+                "program_key": program_key(str(route["ministry"]), str(route["category_id"]), str(route["program_label"])),
+                "amount_cad": str(route["amount_cad"]),
+                "source_rows": route.get("source_rows", []),
+                "source": route.get("source", {}),
+            })
+    named_routes.extend(intermediary_named_routes)
+
+    not_itemized_programs = [
+        {
+            "program_key": str(row["program_key"]),
+            "ministry": str(row["ministry"]),
+            "category_id": str(row["category_id"]),
+            "category_label": CATEGORY_LABELS[str(row["category_id"])],
+            "program_label": str(row["label"]),
+            "program_label_status": str(row.get("label_status", "Source label")),
+            "source_payment_detail": str(row.get("source_payment_detail", "")),
+            "route_id": stable_id("aggregate_route", overview["fiscal_year"], row["program_key"]),
+            "amount_cad": str(row["not_itemized_amount_cad"]),
+            "source_rows": row.get("not_itemized_source_rows", []),
+        }
+        for row in programs if Decimal(str(row["not_itemized_amount_cad"])) > 0
+    ]
+    adjustment_source_rows = [source_row for row in programs for source_row in row.get("adjustment_source_rows", [])]
 
     return {
         "schema_version": "3.0.0",
@@ -1119,6 +1305,7 @@ def build_network_overview(
         "named_intermediary_amount_cad": money(named_intermediary_total),
         "named_intermediary_share_percent": _share(named_intermediary_total, positive_total),
         "intermediary_note": intermediary_note,
+        "intermediaries": intermediary_nodes,
         "named_payee_count": len(convergence["payees"]),
         "named_payee_count_excluding_ontario_health": sum(
             1 for row in convergence["payees"]
@@ -1136,6 +1323,8 @@ def build_network_overview(
         "recipients": recipients,
         "named_routes": named_routes,
         "default_routes": default_routes,
+        "not_itemized_programs": not_itemized_programs,
+        "adjustment_source_rows": adjustment_source_rows,
         "source": {
             "label": "Ontario Public Accounts 2025–26 Detailed Schedules of Payments",
             "url": PAYMENTS_SOURCE_URL,

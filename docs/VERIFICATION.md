@@ -9,9 +9,9 @@ Status: **Data and interface fixes verified; final human sign-off remains partia
 - Positive MOH and MLTC payments: **$97,433,981,876**.
 - Named payees: **$65,183,134,488**.
 - Named non-intermediary organizations shown in the recipient layer: **$53,113,532,604**.
-- Named intermediaries retained as evidence stops: **$12,069,601,884**.
+- Named intermediary payees shown separately from the recipient ranking: **$12,069,601,884** across three payee labels.
 - Not itemized to a public recipient: **$32,250,847,388 (33.10%)**.
-- Fourteen categories, 74 source-native programs, 2,079 named payees after reviewed alias resolution, and 2,076 non-intermediary organizations in the recipient ranking.
+- Fourteen project-defined analytical categories, 74 programs, 2,079 named payees (including three intermediary payees), and 2,076 non-intermediary organizations in the recipient ranking. Program labels based on source `No Value` detail are marked `Category fallback`.
 - In the broader all-payee dataset, 22 payees reach 50% and 110 payees reach 80% of named-payee dollars. The public recipient view separately excludes intermediaries.
 - Every generated payee path exists and every payee total equals its incoming routes.
 - All 135 published financial profiles contain a direct source URL.
@@ -23,7 +23,8 @@ Status: **Data and interface fixes verified; final human sign-off remains partia
 - MOH and MLTC positive payments must sum to **$97,433,981,876**.
 - Fourteen categories must sum to the same amount.
 - Every category must equal its program total.
-- Every program must equal named organizations plus intermediary stops plus non-itemized destinations.
+- Every program’s published positive amount must reconcile to named payees, intermediary payees and aggregate/grouped payments not itemized to named recipients.
+- Every displayed route must link to source-row lineage containing the source line ID, row number, published payee label, original category/detail, amount and source version.
 - Named organizations, named intermediaries and non-itemized amounts must equal the positive-payment total.
 - Every payee total must equal its incoming routes.
 - Recipient category contributions must equal the recipient total.

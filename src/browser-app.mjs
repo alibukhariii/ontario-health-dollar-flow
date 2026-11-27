@@ -66,6 +66,12 @@ function siteRootPath() {
   return path.slice(0, path.lastIndexOf('/') + 1);
 }
 
+// Keep relative recipient and data links rooted at the site when history
+// switches to a nested recipient URL.
+const siteBase = document.querySelector('base') ?? document.createElement('base');
+siteBase.href = new URL(siteRootPath(), window.location.origin).href;
+if (!siteBase.isConnected) document.head.prepend(siteBase);
+
 function recipientIdFromLocation() {
   const queryRecipient = new URL(window.location.href).searchParams.get('recipient');
   if (queryRecipient) return queryRecipient;
@@ -201,10 +207,8 @@ async function openProfile() {
   const recipient = layout.recipientById.get(pinnedRecipientId);
   const payload = await loadPayee(recipient);
   const profile = await loadOptional(payload.profile_path);
-  elements.profile.innerHTML = renderProfilePage(
-    profile,
-    payload.evidence_stops?.[0]?.state ?? 'No published amounts',
-  );
+  const profileStop = (payload.evidence_stops ?? []).find((stop) => String(stop.state).toLocaleLowerCase('en-CA').includes('profile'));
+  elements.profile.innerHTML = renderProfilePage(profile, profileStop?.state ?? 'Profile not available in this release');
   elements.profilePanel.hidden = false;
   elements.profilePanel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
@@ -213,9 +217,30 @@ function searchRecipients(query) {
   const needle = query.trim().toLocaleLowerCase('en-CA');
   if (!needle) return [];
   const selectedType = elements.typeFilter.value;
-  return contract.recipients
+  return [...contract.recipients, ...(contract.intermediaries ?? [])]
     .filter((row) => row.label.toLocaleLowerCase('en-CA').includes(needle) && (!selectedType || row.payee_type === selectedType))
     .slice(0, 12);
+}
+
+function selectSearchRecipient(row) {
+  elements.results.hidden = true;
+  elements.search.value = row.label;
+  const intermediary = (contract.intermediaries ?? []).find((candidate) => candidate.recipient_id === row.recipient_id);
+  if (intermediary) {
+    const card = document.querySelector(`#intermediary-card-${intermediary.intermediary_id}`);
+    if (card) {
+      const figures = card.closest('.intermediary-figures');
+      if (figures) figures.open = true;
+      card.open = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.querySelector('summary')?.focus();
+      announce(`${intermediary.label} intermediary details opened.`);
+    }
+    return;
+  }
+  showRecipientInZoom(row.recipient_id);
+  elements.canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  focusRecipient(row.recipient_id, { pin: true, history: true });
 }
 
 function renderSearchResults() {
@@ -227,7 +252,7 @@ function renderSearchResults() {
   }
   elements.results.innerHTML = matches.length
     ? matches.map((row) => `<button type="button" data-search-recipient="${escapeHtml(row.recipient_id)}"><span>${escapeHtml(displayLabel(row.label))}<small>${escapeHtml(row.payee_type)}</small></span><strong>${formatCad(row.amount_cad)}</strong></button>`).join('')
-    : '<p>No named organization matches that search.</p>';
+    : '<p>No named payee matches that search.</p>';
 }
 
 function bindNetworkEvents() {
@@ -251,6 +276,29 @@ function bindNetworkEvents() {
     if (node) focusRecipient(node.dataset.recipientId);
   });
   elements.canvas.addEventListener('click', (event) => {
+    const intermediaryNode = event.target.closest('a[href^="#intermediary-card-"]');
+    if (intermediaryNode) {
+      event.preventDefault();
+      const target = document.querySelector(intermediaryNode.getAttribute('href'));
+      if (target) {
+        target.open = true;
+        target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+        target.querySelector('summary')?.focus();
+      }
+      return;
+    }
+    const aggregateProgram = event.target.closest('[data-focus-program-key]');
+    if (aggregateProgram) {
+      closeRecipientFocus({ updateHistory: false });
+      focusedProgramKey = aggregateProgram.dataset.focusProgramKey;
+      const selected = contract.programs.find((row) => row.program_key === focusedProgramKey);
+      focusedCategoryId = selected?.category_id ?? null;
+      recipientOffset = 0;
+      renderCurrentNetwork();
+      announce(`Published aggregate payments from ${layout.focusedProgram?.label ?? 'the selected program'} are not itemized to named recipients.`);
+      elements.canvas.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      return;
+    }
     const zoom = event.target.closest('[data-recipient-zoom-offset]');
     if (zoom) {
       closeRecipientFocus({ updateHistory: false });
@@ -299,7 +347,7 @@ function bindNetworkEvents() {
     if (node) focusRecipient(node.dataset.recipientId, { pin: true, history: true });
   });
   elements.canvas.addEventListener('keydown', (event) => {
-    const control = event.target.closest('[data-recipient-zoom-offset],[data-category-id],[data-program-key]');
+    const control = event.target.closest('[data-recipient-zoom-offset],[data-category-id],[data-program-key],[data-focus-program-key]');
     if (control && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -315,6 +363,27 @@ function bindNetworkEvents() {
     }
   });
   elements.search.addEventListener('input', renderSearchResults);
+  elements.search.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
+      const firstResult = elements.results.querySelector('[data-search-recipient]');
+      if (firstResult) {
+        event.preventDefault();
+        firstResult.focus();
+      }
+    } else if (event.key === 'Enter') {
+      const needle = elements.search.value.trim().toLocaleLowerCase('en-CA');
+      const matches = searchRecipients(elements.search.value);
+      const exactMatch = matches.find((row) => row.label.toLocaleLowerCase('en-CA') === needle);
+      const match = exactMatch ?? (matches.length === 1 ? matches[0] : null);
+      if (match) {
+        event.preventDefault();
+        selectSearchRecipient(match);
+      }
+    } else if (event.key === 'Escape' && !elements.results.hidden) {
+      elements.results.hidden = true;
+      event.preventDefault();
+    }
+  });
   elements.typeFilter.addEventListener('change', () => {
     applyRecipientTypeFilter();
     renderSearchResults();
@@ -323,12 +392,8 @@ function bindNetworkEvents() {
     const button = event.target.closest('[data-search-recipient]');
     if (!button) return;
     const id = button.dataset.searchRecipient;
-    elements.results.hidden = true;
-    const matched = contract.recipients.find((row) => row.recipient_id === id);
-    elements.search.value = matched?.label ?? elements.search.value;
-    showRecipientInZoom(id);
-    elements.canvas.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    focusRecipient(id, { pin: true, history: true });
+    const matched = [...contract.recipients, ...(contract.intermediaries ?? [])].find((row) => row.recipient_id === id);
+    if (matched) selectSearchRecipient(matched);
   });
   elements.tooltip.addEventListener('click', (event) => {
     if (event.target.closest('[data-close-tooltip]')) closeRecipientFocus();
@@ -347,8 +412,8 @@ async function loadNetwork() {
     pointer = await fetchJson('data/current.json');
     releaseBase = directoryOf(pointer.flow_v2.network_path);
     contract = await fetchJson(pointer.flow_v2.network_path);
-    elements.count.textContent = `${contract.named_payee_count_excluding_ontario_health.toLocaleString('en-CA')} named organizations`;
-    for (const type of [...new Set(contract.recipients.map((row) => row.payee_type))].sort()) {
+    elements.count.textContent = `${contract.named_payee_count.toLocaleString('en-CA')} named payees`;
+    for (const type of [...new Set([...contract.recipients, ...(contract.intermediaries ?? [])].map((row) => row.payee_type))].sort()) {
       elements.typeFilter.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`);
     }
     renderCurrentNetwork();

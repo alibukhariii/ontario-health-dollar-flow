@@ -4,12 +4,12 @@ An editorial data product that asks:
 
 > **Which organizations received Ontario’s health dollars, how much did they receive, and what were the payments for?**
 
-The 2025–26 release follows **$97.434 billion in positive payments** published by Ontario’s Ministry of Health and Ministry of Long-Term Care. It moves from the two ministries through 14 analytical funding purposes, exact source-native program labels and named payees. It then shows every supported incoming route for a selected payee and an approved financial profile where one is available.
+The 2025–26 release follows **$97.434 billion in positive payments** published by Ontario’s Ministry of Health and Ministry of Long-Term Care. It moves from the two ministries through 14 project-defined analytical funding purposes, source program labels and named payees. Program labels marked **Category fallback** use the source payment category when payment detail is `No Value`; the original source detail remains in the downloadable records.
 
 ## What the product contains
 
 - One recipient ranking of named non-intermediary organizations, with provider, municipality, vendor and other organization types shown beside each result.
-- A separate, reconciled treatment of amounts published under Ontario Health, Ontario Health atHome and other named intermediaries; these amounts remain evidence stops until a compatible downstream recipient crosswalk is public.
+- A separate diagram layer for named intermediaries—Ontario Health, Ontario Health atHome and Accerta—with Public Accounts payments and audited statement amounts labeled by source and kept separate where they are different reporting views.
 - Program-specific rankings that retain each organization’s recipient rank and total published payments.
 - Concentration measures for the largest named payees.
 - Recipient category and program contributions.
@@ -21,13 +21,15 @@ The 2025–26 release follows **$97.434 billion in positive payments** published
 
 Three analysis-ready datasets are published under [`data/derived`](data/derived):
 
-- **Recipient funding routes:** 3,926 ministry → purpose → official program → named recipient routes with amounts and source lineage.
+- **Recipient funding routes:** 3,926 ministry → purpose → official program → named payee routes with amounts and source lineage.
 - **Organization and alias index:** 2,084 published aliases attached to 2,079 ranked payees after reviewed alias resolution, with organization type and identity status.
 - **Harmonized financial statements:** 4,995 approved, source-native hospital and Ontario Health financial observations with page-level lineage.
 
 These files are derived from public records, but the connected routes, reviewed identities and harmonized statement observations are project-created. See the [dataset guide](data/README.md) for schemas, limitations and reproduction instructions.
 
-The downloadable route and alias datasets retain all 2,079 named payees, including intermediaries, for reproducibility. The public recipient diagram ranks 2,076 named non-intermediary organizations. It keeps the **$12.070 billion** published under named intermediaries separate from the **$53.114 billion** assigned to named organizations and the **$32.251 billion** that was not itemized. These three parts reconcile to the $97.434 billion positive-payment denominator. Ontario Health can also administer funding that ministries pay directly to providers, so its audited transfer expenses can overlap Public Accounts payments already assigned to those providers. The interface uses dotted lines to show this role without adding the overlapping amount again.
+The downloadable route and alias datasets retain all **2,079 named payees**, including intermediaries. The recipient ranking contains **2,076 non-intermediary organizations**. The $65.183 billion named-payee total comprises $53.114 billion to non-intermediary organizations and $12.070 billion listed under the three intermediaries. A further $32.251 billion appears in program-level aggregates or grouped payments without named recipients. Together these amounts reconcile to the $97.434 billion positive-payment frame. Audited transfer expenses for Ontario Health and OHaH are separate statement views; the available records do not map every intermediary expense to a named downstream recipient. Dotted styling marks documented oversight, not money passing through the intermediary; the route amount remains the published ministry payment to the named payee.
+
+Each recipient route links to its source schedule and has source-row details. The [route-to-source lineage CSV](data/derived/route-to-source-lineage.csv) preserves source row numbers, published payee names, category/detail values and source versions. When reviewed identity evidence supports a canonical ranking name, the source-native payee labels remain available alongside it. `Ihf` remains separate with identity unresolved.
 
 The main visual does not use the $97.013 billion net figure, the −$421.011 million pharmacy adjustment or the $92.286 billion ministry-expense frame. Those figures are documented in [the methodology](docs/METHODOLOGY.md).
 

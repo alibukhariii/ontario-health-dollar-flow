@@ -16,9 +16,9 @@ The product maps published payments. It does not claim that the schedule is a co
 
 ## Classification
 
-Each positive payment line maps to exactly one of 14 funding purposes using its ministry, payment category and exact published payment detail. The payee’s identity does not determine the category. The [taxonomy crosswalk](../dist/data/) is versioned and the build fails when it encounters an unmapped source label.
+Each positive payment line maps to one of 14 **project-defined analytical funding purposes** using its ministry, payment category and published payment detail. The payee’s identity does not determine the category. The [taxonomy crosswalk](../dist/data/) is versioned and the build fails when it encounters an unmapped source label.
 
-Official program names remain unchanged beneath the analytical categories. For example, `Operation Of Hospitals` is shown exactly as published.
+Program names follow the source detail unless it is `No Value`. In that case, the displayed program name is marked **Category fallback** and uses the source payment category as a stand-in; the downloadable data retains the original source detail. This includes “Long-term care transfer payments.”
 
 > Operation of Hospitals combines multiple funding mechanisms, including base, targeted, activity-based and one-time funding. A consistent recipient-level breakdown is not publicly available.
 
@@ -26,16 +26,16 @@ HBAM, Quality-Based Procedures and other hospital funding mechanisms therefore d
 
 ## Named payees and evidence coverage
 
-People and employee labels never enter public files. Their aggregate amount remains within `Not itemized by recipient`. Program aggregates and thresholded lines are also shown as non-itemized terminals.
+Personal payee labels never enter public files. Their amounts remain grouped with program aggregates and other rows that are not itemized to named recipients. The diagram identifies the source program or group where available; it does not assign those amounts to a named person or organization.
 
 Aliases are combined only when a reviewed authoritative link proves that the labels belong to the same legal organization. Otherwise the published label remains separate. Payee type uses authoritative entity evidence first and the strongest supported payment classification second.
 
 The current release contains:
 
-- **$65.183 billion** itemized to named public payees.
+- **$65.183 billion** listed across **2,079 named payees**, including three named intermediaries.
 - **$53.114 billion** assigned to 2,076 named non-intermediary organizations in the recipient layer after reviewed alias resolution.
-- **$12.070 billion** published under named intermediaries and retained as program-level evidence stops.
-- **$32.251 billion**, or **33.10%**, not itemized to a public recipient.
+- **$12.070 billion** in Public Accounts rows naming Ontario Health, Ontario Health atHome or Accerta.
+- **$32.251 billion**, or **33.10%**, published as program-level aggregates or grouped payments and not itemized to named recipients.
 - One recipient ranking of named non-intermediary organizations. The reproducible data exports retain the broader all-payee ranking separately.
 
 ## Rankings and concentration
@@ -51,11 +51,11 @@ These are descriptive concentration measures. They do not measure efficiency, qu
 
 ## Intermediaries and financial profiles
 
-Ontario Health, Ontario Health atHome and other named intermediaries remain in the underlying payee data, but they do not appear as recipient bubbles or in the recipient ranking. Their Public Accounts amounts remain part of the $97.434 billion denominator and appear as program-level evidence stops. Ontario Health can administer funding that a ministry pays directly to a provider, then recognize the same funding as revenue and transfer expense. Its audited transfer totals can therefore overlap provider payments in Public Accounts and must not be added to them. A dotted treatment on a recipient route indicates a documented intermediary role only; it carries no additional amount because no complete public recipient-by-recipient crosswalk is available.
+Ontario Health, Ontario Health atHome and Accerta appear as distinct intermediary nodes, separate from the 2,076-organization recipient ranking. Their Public Accounts rows remain in the $97.434 billion positive-payment frame. An audited transfer from Ontario Health to Ontario Health atHome is shown as a separate reporting view; it is not added to Ministry of Health payment rows. Route amounts are the published ministry payments to named payees. Dotted styling marks documented oversight; it does not mean that money passed through an intermediary or show a complete allocation.
 
-Public Accounts lists **$12.006 billion** with Ontario Health as the payee. Ontario Health separately reported **$48.203 billion** in 2025–26 expenses: **$47.311 billion** in provider and long-term-care transfers and **$892.331 million** in Ontario Health-run operations. The **$35.305 billion** difference reflects funding Ontario Health oversees that may be paid directly by ministries; it does not identify additional named-recipient amounts. These published figures overlap and should not be added together. Ontario Health atHome separately reported **$4.839 billion** in expenses, including **$3.607 billion** in contracted care.
+Public Accounts lists **$12.006 billion** with Ontario Health as payee. Ontario Health separately reported **$48.203 billion** in expenses: **$47.311 billion** in transfer expenses and **$892.331 million** in its own operations. The **$35.305 billion** arithmetic difference between the transfer-expense total and Public Accounts payee rows is not reconciled by the sources; it is not a third payment amount. Ontario Health reports **$4.822 billion** in transfer expense to Ontario Health atHome. OHaH reports **$4.841 billion** in revenue, **$4.839 billion** in expenses, including **$3.607 billion** in contracted care. Its Public Accounts direct ministry payment is **$150,000**. Accerta’s Public Accounts amount is **$62.981 million**; its onward-payment and operating-cost split is not published in the collected evidence.
 
-The recipient-level share administered through either intermediary is not consistently published. Dotted routes therefore identify a documented role; their widths reuse the published recipient amount and do not add a second flow.
+These audited totals do not give a complete recipient-by-recipient match of intermediary outflows. The amounts are not added to recipient totals. Dotted lines mark documented funding, accountability or contracting oversight. They do not show a separate payment, do not mean that the displayed ministry-to-payee amount passed through the intermediary, and do not provide a complete allocation.
 
 Recipient statements provide organization-wide revenue and expense context. Incoming payments are not connected to particular expenses, and statement totals are not added to the payment denominator.
 
@@ -63,4 +63,4 @@ Recipient statements provide organization-wide revenue and expense context. Inco
 
 The build reads frozen evidence inputs, applies the reviewed taxonomy and identity links, runs reconciliation and privacy gates, and writes versioned static JSON. The website loads those files on demand. It does not query DuckDB.
 
-The public DuckDB and CSV archive contain only public payment observations, categories, programs, payees, approved aliases, routes, contributions, approved financial observations, sources, crosswalks, intermediary outflows and evidence stops.
+The public DuckDB and CSV archive contain public payment observations, categories, programs, payees, approved aliases, routes, contributions, approved financial observations, sources, crosswalks, intermediary outflows and evidence stops. `route-to-source-lineage.csv` links each displayed route to its source row number, published payee, original category and detail, amount and source version. It retains source-native labels even when the displayed ranking name is a reviewed canonical name.

@@ -267,7 +267,7 @@ test('Ontario Health is explanatory context rather than a ranked recipient node'
 
   assert.doesNotMatch(html, /recipient-node--intermediary/);
   assert.match(html, /intermediary-evidence-stop/);
-  assert.match(html, /Published under an intermediary/);
+  assert.match(html, /Published ministry payment to an intermediary/);
   assert.match(html, /\$40/);
   assert.match(html, /\$80/);
   assert.match(html, /How intermediaries fit in/);
@@ -288,8 +288,9 @@ test('recipient route uses a dotted explanatory treatment when Ontario Health ha
       category_label: 'Hospital care', program_label: 'Operations', amount_cad: '90.00',
       intermediary_context: {
         label: 'Ontario Health', role: 'funding and accountability role',
-        amount_status: 'not_separately_published',
-        explanation: 'Ontario Health has a documented funding and accountability role. The recipient-level intermediary amount is not separately published.',
+        relationship_type: 'documented_oversight',
+        relationship_amount_status: 'no_amount_on_oversight_line',
+        explanation: 'Ontario Health has a documented funding and accountability role. The dotted line marks that oversight relationship; it is not another payment or a complete allocation. The amount shown is the ministry payment published for the named payee.',
       },
     }],
   };
@@ -300,7 +301,8 @@ test('recipient route uses a dotted explanatory treatment when Ontario Health ha
   assert.equal((result.routes.match(/<line /g) ?? []).length, 1);
   assert.doesNotMatch(result.routes, /transform="translate/);
   assert.match(result.routes, /stroke-width="13\.00"/);
-  assert.doesNotMatch(result.tooltip, /Ontario Health/);
+  assert.match(result.tooltip, /dotted line marks that oversight relationship/);
+  assert.match(result.tooltip, /amount shown is the ministry payment published for the named payee/);
   assert.deepEqual(result.categoryIds, ['hospital_care']);
   assert.deepEqual(result.programKeys, ['Ministry Of Health␟hospital_care␟Operations']);
 });

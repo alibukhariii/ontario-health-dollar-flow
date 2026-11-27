@@ -19,7 +19,16 @@ ROUTE_FIELDS = (
     "payee_type", "identity_status", "entity_id", "global_rank",
     "recipient_total_cad", "ministry", "category_id", "category_label",
     "program_label", "route_amount_cad", "route_share_of_recipient_percent",
+    "program_label_status", "source_payment_detail", "source_row_count", "source_row_numbers",
     "source_id", "source_url", "source_limitation",
+)
+
+LINEAGE_FIELDS = (
+    "route_id", "payee_id", "canonical_payee", "published_payee", "identity_status", "identity_match_source_ids",
+    "identity_match_relationships", "identity_match_review_status", "entity_id", "recipient_class",
+    "payment_line_id", "source_row_number", "source_version_id", "fiscal_year", "ministry",
+    "source_payment_category", "source_payment_detail", "category_id", "category_label",
+    "displayed_program_label", "program_label_status", "amount_cad", "source_url",
 )
 
 ORGANIZATION_FIELDS = (
@@ -57,6 +66,7 @@ def _route_rows(tables: dict[str, list[dict[str, object]]], fiscal_year: str) ->
         total = Decimal(str(payee["published_payment_total_cad"]))
         share = (amount / total * 100).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
         source = route.get("source", {})
+        source_rows = route.get("source_rows", [])
         rows.append({
             "fiscal_year": fiscal_year,
             "route_id": route["route_id"],
@@ -72,6 +82,10 @@ def _route_rows(tables: dict[str, list[dict[str, object]]], fiscal_year: str) ->
             "category_id": route["category_id"],
             "category_label": route["category_label"],
             "program_label": route["program_label"],
+            "program_label_status": route.get("program_label_status", "Source label"),
+            "source_payment_detail": route.get("source_payment_detail", ""),
+            "source_row_count": len(source_rows),
+            "source_row_numbers": ";".join(str(row.get("source_row_number", "")) for row in source_rows),
             "route_amount_cad": route["amount_cad"],
             "route_share_of_recipient_percent": str(share),
             "source_id": source.get("source_id", "pa-payments-2025-26-r3ab37bb7"),
@@ -84,6 +98,67 @@ def _route_rows(tables: dict[str, list[dict[str, object]]], fiscal_year: str) ->
     return sorted(rows, key=lambda row: (
         int(row["global_rank"]), str(row["category_id"]), str(row["program_label"]),
         -Decimal(str(row["route_amount_cad"])), str(row["route_id"]),
+    ))
+
+
+def _lineage_rows(tables: dict[str, list[dict[str, object]]]) -> list[dict[str, object]]:
+    payees = {str(row["payment_label_id"]): row for row in tables["payees"]}
+    rows: list[dict[str, object]] = []
+    for route in tables["recipient_routes"]:
+        payee = payees[str(route["payee_id"])]
+        identity_evidence = route.get("identity_evidence", [])
+        for source_row in route.get("source_rows", []):
+            rows.append({
+                "route_id": route["route_id"],
+                "payee_id": route["payee_id"],
+                "canonical_payee": payee.get("display_label", ""),
+                "published_payee": source_row.get("source_payee_label", route.get("published_payee", "")),
+                "identity_status": payee.get("identity_status", ""),
+                "identity_match_source_ids": ";".join(str(item.get("source_id", "")) for item in identity_evidence if item.get("source_id")),
+                "identity_match_relationships": ";".join(str(item.get("relationship_type", "")) for item in identity_evidence if item.get("relationship_type")),
+                "identity_match_review_status": ";".join(str(item.get("review_status", "")) for item in identity_evidence if item.get("review_status")),
+                "entity_id": payee.get("entity_id", ""),
+                "recipient_class": source_row.get("recipient_class", ""),
+                "payment_line_id": source_row.get("payment_line_id", ""),
+                "source_row_number": source_row.get("source_row_number", ""),
+                "source_version_id": source_row.get("source_version_id", ""),
+                "fiscal_year": source_row.get("fiscal_year", ""),
+                "ministry": source_row.get("ministry", route.get("ministry", "")),
+                "source_payment_category": source_row.get("source_payment_category", ""),
+                "source_payment_detail": source_row.get("source_payment_detail", ""),
+                "category_id": route.get("category_id", ""),
+                "category_label": route.get("category_label", ""),
+                "displayed_program_label": route.get("program_label", ""),
+                "program_label_status": route.get("program_label_status", "Source label"),
+                "amount_cad": source_row.get("amount_cad", ""),
+                "source_url": source_row.get("source_url", route.get("source", {}).get("url", "")),
+            })
+    for table_name, state in (("non_itemized_source_rows", "not_itemized"), ("signed_adjustment_source_rows", "signed_adjustment")):
+        for source_row in tables.get(table_name, []):
+            rows.append({
+                "route_id": source_row.get("route_id", ""),
+                "payee_id": "",
+                "canonical_payee": "",
+                "published_payee": source_row.get("source_payee_label", ""),
+                "identity_status": state,
+                "entity_id": "",
+                "recipient_class": source_row.get("recipient_class", ""),
+                "payment_line_id": source_row.get("payment_line_id", ""),
+                "source_row_number": source_row.get("source_row_number", ""),
+                "source_version_id": source_row.get("source_version_id", ""),
+                "fiscal_year": source_row.get("fiscal_year", ""),
+                "ministry": source_row.get("ministry", ""),
+                "source_payment_category": source_row.get("source_payment_category", ""),
+                "source_payment_detail": source_row.get("source_payment_detail", ""),
+                "category_id": source_row.get("category_id", ""),
+                "category_label": source_row.get("category_label", ""),
+                "displayed_program_label": source_row.get("displayed_program_label", ""),
+                "program_label_status": source_row.get("program_label_status", "Source label"),
+                "amount_cad": source_row.get("amount_cad", ""),
+                "source_url": source_row.get("source_url", build_public_release.flow_v2_data.PAYMENTS_SOURCE_URL),
+            })
+    return sorted(rows, key=lambda row: (
+        int(row.get("source_row_number") or 0), str(row.get("published_payee", "")), str(row.get("route_id", "")),
     ))
 
 
@@ -136,6 +211,7 @@ def export_core_datasets(site_root: Path, output_root: Path) -> dict[str, object
 
     datasets = {
         "recipient-funding-routes.csv": (ROUTE_FIELDS, _route_rows(tables, fiscal_year)),
+        "route-to-source-lineage.csv": (LINEAGE_FIELDS, _lineage_rows(tables)),
         "organization-alias-index.csv": (ORGANIZATION_FIELDS, _organization_rows(tables)),
         "harmonized-financial-statements.csv": (FINANCIAL_FIELDS, _financial_rows(tables)),
     }

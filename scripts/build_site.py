@@ -38,15 +38,36 @@ def _format_cad(value: str) -> str:
 
 
 def _route_rows(payload: dict[str, object]) -> str:
-    return "".join(
-        "<tr>"
-        f"<td>{html.escape(str(route['ministry']))}</td>"
-        f"<td>{html.escape(str(route['category_label']))}</td>"
-        f"<td>{html.escape(str(route['program_label']))}</td>"
-        f"<td>{_format_cad(str(route['amount_cad']))}</td>"
-        "</tr>"
-        for route in payload.get("incoming_routes", [])
-    )
+    rows = []
+    for route in payload.get("incoming_routes", []):
+        source_records = []
+        for source_row in route.get("source_rows", []):
+            source_records.append(
+                "<li>Public Accounts row "
+                + html.escape(str(source_row.get("source_row_number", "")))
+                + " · " + html.escape(str(source_row.get("source_payee_label", "")))
+                + " · " + html.escape(str(source_row.get("source_payment_category", "")))
+                + " / " + html.escape(str(source_row.get("source_payment_detail", "No Value")))
+                + " · " + _format_cad(str(source_row.get("amount_cad", "0")))
+                + "</li>"
+            )
+        fallback = '<br><small>Category fallback</small>' if route.get("program_label_status") == "Category fallback" else ""
+        source_cell = (
+            html.escape(", ".join(str(item.get("source_row_number", "")) for item in route.get("source_rows", [])))
+            + "<details><summary>View source record(s)</summary><ol>"
+            + "".join(source_records)
+            + '</ol><a href="https://www.ontario.ca/page/public-accounts-2025-26-detailed-schedules-payments">Open the source schedule</a></details>'
+        )
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(route['ministry']))}</td>"
+            f"<td>{html.escape(str(route['category_label']))}</td>"
+            f"<td>{html.escape(str(route['program_label']))}{fallback}</td>"
+            f"<td>{_format_cad(str(route['amount_cad']))}</td>"
+            f"<td>{source_cell}</td>"
+            "</tr>"
+        )
+    return "".join(rows)
 
 
 def _static_recipient(recipient: dict[str, object], payload: dict[str, object], source: dict[str, str]) -> str:
@@ -59,12 +80,13 @@ def _static_recipient(recipient: dict[str, object], payload: dict[str, object], 
         <strong>{_format_cad(str(recipient['amount_cad']))}</strong>
         <span>Total positive payments published for this recipient in FY 2025–26</span>
       </header>
+      {('<p class="identity-status identity-status--unresolved">Identity unresolved. This published payee name is kept separate.</p>' if recipient.get('identity_status') == 'unresolved' else '')}
       <h3>{len(routes)} published program route{'s' if len(routes) != 1 else ''}</h3>
       <div class="static-table-scroll"><table>
-        <thead><tr><th>Ministry</th><th>Funding purpose</th><th>Official program</th><th>Amount</th></tr></thead>
+        <thead><tr><th>Ministry</th><th>Funding purpose</th><th>Program name</th><th>Amount</th><th>Source row(s)</th></tr></thead>
         <tbody>{_route_rows(payload)}</tbody>
       </table></div>
-      <p class="static-recipient__source">Sources: <a href="{html.escape(source['url'])}">{html.escape(source['label'])}</a> · <a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/recipient-funding-routes.csv">download route data with source links (CSV)</a></p>
+      <p class="static-recipient__source">Sources: <a href="{html.escape(source['url'])}">{html.escape(source['label'])}</a> · <a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/data/derived/route-to-source-lineage.csv">download route-to-source lineage (CSV)</a></p>
     </article>"""
 
 
@@ -80,9 +102,9 @@ def _static_overview(network: dict[str, object]) -> str:
     intermediary = network.get("intermediary_note", {})
     intermediary_note = (
         '<aside class="recipient-coverage-note">'
-        '<p><strong>How intermediaries fit in.</strong> Ontario Health and Ontario Health atHome can oversee or pass along public funding. Public records do not show each recipient’s exact share through them. Dotted lines mark documented involvement; their width reuses the recipient amount already shown and does not add dollars.</p>'
+        '<p><strong>How intermediaries fit in.</strong> Ontario Health, Ontario Health atHome and Accerta appear as named payees. Their Public Accounts payment rows and audited financial statements are separate views. The statements do not match every dollar to a named downstream recipient, so these amounts are shown separately and are not added to recipient payments.</p>'
         '<details><summary>See the published agency figures</summary>'
-        f'<p>Public Accounts lists {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))} paid to Ontario Health. Ontario Health reports {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in transfers and {_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} for its own operations. The {_format_cad(str(intermediary.get("ontario_health_transfer_gap_vs_public_accounts_cad", "0")))} difference reflects funding Ontario Health oversees that ministries may pay directly; these published views overlap and are not amounts to add together. Ontario Health atHome reports {_format_cad(str(intermediary.get("ontario_health_athome_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care. Do not add these figures to recipient amounts.</p>'
+        f'<p>Public Accounts lists {_format_cad(str(intermediary.get("ontario_health_public_accounts_amount_cad", "0")))} paid to Ontario Health, {_format_cad(str(intermediary.get("ontario_health_athome_direct_ministry_amount_cad", "0")))} paid directly to Ontario Health atHome, and {_format_cad(str(intermediary.get("accerta_public_accounts_amount_cad", "0")))} paid to Accerta. Ontario Health separately reports {_format_cad(str(intermediary.get("ontario_health_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_passed_on_cad", "0")))} in transfers and {_format_cad(str(intermediary.get("ontario_health_own_operations_cad", "0")))} for its own operations. The $35.3B arithmetic gap between Ontario Health transfer expenses and its Public Accounts payee amount is not reconciled by the sources. Ontario Health reports {_format_cad(str(intermediary.get("ontario_health_athome_transfer_from_oh_cad", "0")))} transferred to OHaH; OHaH reports {_format_cad(str(intermediary.get("ontario_health_athome_revenue_total_cad", "0")))} in revenue and {_format_cad(str(intermediary.get("ontario_health_athome_reported_expense_total_cad", "0")))} in expenses, including {_format_cad(str(intermediary.get("ontario_health_athome_contracted_services_cad", "0")))} in contracted care. Accerta’s Public Accounts amount is {_format_cad(str(intermediary.get("accerta_public_accounts_amount_cad", "0")))}; its split between onward payments and its own costs is not published. These are separate reporting views and do not show every downstream recipient.</p>'
         f'<p>Sources: <a href="{html.escape(str(intermediary.get("source_url", "")))}">Ontario Health</a>; '
         f'<a href="{html.escape(str(intermediary.get("athome_source_url", "")))}">Ontario Health atHome</a>.</p></details>'
         '<nav class="evidence-links" aria-label="Evidence and project information"><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/METHODOLOGY.md">Methodology</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/LIMITATIONS.md">Limitations</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/tree/main/data/derived">Download data</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/issues/new?template=data-error.yml">Report a data error</a><a href="https://github.com/alibukhariii/ontario-health-dollar-flow/blob/main/docs/CORRECTIONS.md">Corrections</a></nav>'
@@ -92,7 +114,7 @@ def _static_overview(network: dict[str, object]) -> str:
     return f"""<article class="static-overview">
       <p>This page remains readable without JavaScript. The interactive network adds every program and recipient connection.</p>
       <h3>Fourteen funding purposes</h3>
-      <p>Funding purposes are project groupings; program names come from published records.</p>
+      <p>The 14 funding purposes are project groupings. “Category fallback” marks a displayed program name used when source detail is “No Value.”</p>
       <div class="static-table-scroll"><table><thead><tr><th>Funding purpose</th><th>Amount</th><th>Share</th></tr></thead><tbody>{category_rows}</tbody></table></div>
       <h3>Largest named organizations</h3>
       <ol>{top_recipients}</ol>
@@ -218,7 +240,7 @@ def generate_static_pages(output_root: Path, release: dict[str, object]) -> None
             f'<li><a href="recipient/{html.escape(recipient_id)}/"><span>{html.escape(str(recipient["label"]))}</span><strong>{_format_cad(str(recipient["amount_cad"]))}</strong></a></li>'
         )
 
-    recipients_document = f"""<!doctype html><html lang="en-CA"><head><base href="../"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="All named organizations in Ontario's 2025–26 published health-ministry payment records."><title>All named organizations | Where Ontario’s Health Dollars Went</title><link rel="stylesheet" href="styles.css"></head><body class="recipient-index"><main><a href="./">Where Ontario’s Health Dollars Went</a><h1>All {int(network['named_recipient_count']):,} named organizations</h1><p>Ranked by positive published payments in FY 2025–26. Named intermediaries are explained separately and are not included in this ranking.</p><ol>{''.join(recipient_links)}</ol></main></body></html>"""
+    recipients_document = f"""<!doctype html><html lang="en-CA"><head><base href="../"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="All named organizations in Ontario's 2025–26 published health-ministry payment records."><title>All named organizations | Where Ontario’s Health Dollars Went</title><link rel="stylesheet" href="styles.css"></head><body class="recipient-index"><main><a href="./">Where Ontario’s Health Dollars Went</a><h1>All {int(network['named_recipient_count']):,} named organizations</h1><p>Ranked by positive published payments in FY 2025–26. The release lists {int(network['named_payee_count']):,} named payees including three intermediaries; intermediary amounts are shown separately from this recipient ranking.</p><ol>{''.join(recipient_links)}</ol></main></body></html>"""
     recipient_index = output_root / "recipients" / "index.html"
     recipient_index.parent.mkdir(parents=True, exist_ok=True)
     recipient_index.write_text(recipients_document, encoding="utf-8")
