@@ -39,7 +39,7 @@ test('loads the landing page and complete radial funding network', async ({ page
   await expect(page.locator('.network-legend')).toContainText('does not mean money passed through an intermediary');
   await expect(page.locator('.aggregate-payment-panel')).toContainText('across 47 programs');
   await expect(page.locator('.aggregate-payment-panel')).toContainText('$32.3B');
-  await expect(page.locator('.recipient-coverage-note')).toContainText('reports $48.2B in expenses');
+  await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health reports $48.2B in audited expenses');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$47.3B in transfers');
   await expect(page.locator('.recipient-coverage-note')).toContainText('$35.3B');
   await expect(page.locator('.recipient-coverage-note')).toContainText('Ontario Health atHome');
@@ -111,7 +111,7 @@ test('category and recipient aggregates open legible zoom levels', async ({ page
 test('search opens Ontario Health intermediary details and recipient routes', async ({ page }) => {
   await openNetwork(page);
   await page.locator('#recipient-search').fill('Ontario Health');
-  const intermediaryResult = page.locator('[data-search-recipient]').filter({ hasText: 'Ontario Health' }).first();
+  const intermediaryResult = page.locator('[data-search-recipient="label_88d5f461d2259da2"]');
   await expect(intermediaryResult).toBeVisible();
   await intermediaryResult.click();
   await expect(page.locator('#intermediary-card-ontario_health')).toHaveAttribute('open', '');
